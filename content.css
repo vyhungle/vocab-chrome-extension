@@ -1,0 +1,115 @@
+.vs-popup {
+  position: absolute;
+  z-index: 2147483647;
+  width: 280px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.18);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  color: #1e293b;
+  padding: 12px 14px;
+  animation: vs-fade 0.12s ease-out;
+}
+
+@keyframes vs-fade {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.vs-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.vs-word {
+  font-size: 17px;
+  font-weight: 700;
+  color: #0f172a;
+  word-break: break-word;
+}
+
+.vs-actions {
+  display: flex;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.vs-btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 15px;
+  padding: 4px 6px;
+  border-radius: 6px;
+  line-height: 1;
+}
+.vs-btn:hover { background: #f1f5f9; }
+
+.vs-phonetic {
+  font-size: 12px;
+  color: #64748b;
+  margin: 4px 0 6px;
+}
+
+.vs-meaning {
+  font-size: 15px;
+  color: #1e293b;
+  line-height: 1.4;
+}
+
+.vs-loading { color: #94a3b8; font-style: italic; }
+.vs-error { color: #dc2626; font-size: 13px; }
+
+.vs-alts {
+  font-size: 12px;
+  color: #64748b;
+  margin-top: 6px;
+}
+
+/* ---- Khu vực lưu ---- */
+.vs-save-box {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid #e2e8f0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.vs-row { display: flex; align-items: center; gap: 6px; }
+.vs-label { font-size: 12px; color: #64748b; width: 46px; flex-shrink: 0; }
+.vs-deck {
+  flex: 1; font-size: 13px; padding: 5px 6px;
+  border: 1px solid #e2e8f0; border-radius: 7px; background: #fff; color: #1e293b;
+}
+.vs-newdeck {
+  border: 1px solid #e2e8f0; background: #fff; border-radius: 7px;
+  width: 28px; height: 28px; cursor: pointer; font-size: 16px; line-height: 1; color: #2563eb;
+}
+.vs-newdeck:hover { background: #f1f5f9; }
+.vs-newdeck-row { display: flex; gap: 6px; }
+.vs-newdeck-input {
+  flex: 1; font-size: 13px; padding: 5px 8px;
+  border: 1px solid #e2e8f0; border-radius: 7px;
+}
+.vs-newdeck-ok {
+  border: none; background: #2563eb; color: #fff; border-radius: 7px;
+  padding: 0 12px; cursor: pointer; font-size: 13px;
+}
+.vs-levels { display: flex; gap: 4px; flex: 1; }
+.vs-lv {
+  flex: 1; font-size: 12px; padding: 5px 0; cursor: pointer;
+  border: 1px solid #e2e8f0; border-radius: 7px; background: #fff; color: #475569;
+}
+.vs-lv:hover { background: #f1f5f9; }
+.vs-lv.active { background: #2563eb; color: #fff; border-color: #2563eb; }
+/* level được tự gợi ý: xanh lá để phân biệt với lựa chọn thủ công */
+.vs-lv.active.suggested { background: #16a34a; border-color: #16a34a; }
+.vs-save-btn {
+  margin-top: 2px; padding: 8px; font-size: 14px; cursor: pointer;
+  border: none; border-radius: 8px; background: #2563eb; color: #fff; font-weight: 600;
+}
+.vs-save-btn:hover { background: #1d4ed8; }
+.vs-save-btn.saved { background: #16a34a; }

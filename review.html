@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>Ôn tập từ vựng</title>
+  <link rel="stylesheet" href="review.css">
+</head>
+<body>
+  <div class="wrap">
+    <!-- Màn hình thiết lập -->
+    <div id="setup" class="card">
+      <h1>📚 Ôn tập từ vựng</h1>
+
+      <div id="dash" class="dash"></div>
+
+      <div class="field">
+        <label>Bộ từ</label>
+        <select id="deck"><option value="">Tất cả bộ</option></select>
+      </div>
+
+      <div class="field">
+        <label>Level</label>
+        <select id="level">
+          <option value="">Tất cả level</option>
+          <option>A1</option><option>A2</option><option>B1</option>
+          <option>B2</option><option>C1</option><option>C2</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label>Kiểu ôn</label>
+        <div class="btn-group" id="mode">
+          <button data-v="flashcard" class="active">Flashcard</button>
+          <button data-v="quiz">Trắc nghiệm</button>
+          <button data-v="type">Gõ lại từ</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Chế độ</label>
+        <div class="btn-group" id="schedule">
+          <button data-v="srs" class="active">Đến hạn (thông minh)</button>
+          <button data-v="all">Ôn tất cả</button>
+        </div>
+        <p class="hint" id="scheduleHint"></p>
+      </div>
+
+      <button id="start" class="primary big">Bắt đầu ôn</button>
+      <p class="hint" id="poolInfo"></p>
+    </div>
+
+    <!-- Màn hình ôn -->
+    <div id="session" class="card hidden">
+      <div class="progress"><div id="progressBar"></div></div>
+      <div class="counter"><span id="idx">0</span>/<span id="total">0</span></div>
+
+      <!-- Flashcard -->
+      <div id="flashcard" class="stage hidden">
+        <div class="flip" id="flip">
+          <div class="flip-inner" id="flipInner">
+            <div class="flip-front">
+              <div class="big-word" id="fcWord"></div>
+              <button class="speak-btn" id="fcSpeak">🔊</button>
+              <p class="tap-hint">Bấm để xem nghĩa</p>
+            </div>
+            <div class="flip-back">
+              <div class="meaning" id="fcMeaning"></div>
+            </div>
+          </div>
+        </div>
+        <div class="grade hidden" id="fcGrade">
+          <button class="wrong" data-ok="0">😕 Chưa nhớ</button>
+          <button class="right" data-ok="1">😄 Nhớ rồi</button>
+        </div>
+      </div>
+
+      <!-- Trắc nghiệm -->
+      <div id="quiz" class="stage hidden">
+        <div class="big-word" id="qzWord"></div>
+        <button class="speak-btn" id="qzSpeak">🔊</button>
+        <p class="q-hint">Chọn nghĩa đúng:</p>
+        <div class="options" id="qzOptions"></div>
+      </div>
+
+      <!-- Gõ lại -->
+      <div id="type" class="stage hidden">
+        <div class="meaning big" id="tpMeaning"></div>
+        <p class="q-hint">Gõ từ tiếng Anh:</p>
+        <input id="tpInput" type="text" autocomplete="off" placeholder="Nhập từ…" />
+        <button class="primary" id="tpCheck">Kiểm tra</button>
+        <div class="tp-result hidden" id="tpResult"></div>
+      </div>
+    </div>
+
+    <!-- Kết quả -->
+    <div id="done" class="card hidden">
+      <h1>🎉 Xong buổi ôn!</h1>
+      <div class="stats">
+        <div><span id="rCorrect">0</span><small>Đúng</small></div>
+        <div><span id="rWrong">0</span><small>Sai</small></div>
+        <div><span id="rTotal">0</span><small>Tổng</small></div>
+      </div>
+      <button id="again" class="primary big">Ôn lại</button>
+    </div>
+  </div>
+
+  <script src="review.js"></script>
+</body>
+</html>
