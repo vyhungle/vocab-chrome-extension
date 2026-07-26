@@ -11,11 +11,14 @@
     <div id="setup" class="card">
       <h1>📚 Ôn tập từ vựng</h1>
 
+      <div id="streak" class="streak hidden"></div>
+
       <div id="dash" class="dash"></div>
 
       <div class="field">
         <label>Bộ từ</label>
-        <select id="deck"><option value="">Tất cả bộ</option></select>
+        <input type="text" id="deckFilter" class="deck-filter hidden" placeholder="🔍 Tìm bộ từ…" />
+        <div class="deck-grid" id="deckGrid"></div>
       </div>
 
       <div class="field">
@@ -61,7 +64,7 @@
             <div class="flip-front">
               <div class="big-word" id="fcWord"></div>
               <button class="speak-btn" id="fcSpeak">🔊</button>
-              <p class="tap-hint">Bấm để xem nghĩa</p>
+              <p class="tap-hint">Bấm hoặc nhấn <span class="kbd-hint">Space</span> để xem nghĩa</p>
             </div>
             <div class="flip-back">
               <div class="meaning" id="fcMeaning"></div>
@@ -69,8 +72,8 @@
           </div>
         </div>
         <div class="grade hidden" id="fcGrade">
-          <button class="wrong" data-ok="0">😕 Chưa nhớ</button>
-          <button class="right" data-ok="1">😄 Nhớ rồi</button>
+          <button class="wrong" data-ok="0">😕 Chưa nhớ <span class="kbd-hint">←</span></button>
+          <button class="right" data-ok="1">😄 Nhớ rồi <span class="kbd-hint">→</span></button>
         </div>
       </div>
 
@@ -99,7 +102,9 @@
         <div><span id="rCorrect">0</span><small>Đúng</small></div>
         <div><span id="rWrong">0</span><small>Sai</small></div>
         <div><span id="rTotal">0</span><small>Tổng</small></div>
+        <div><span id="rAcc">0%</span><small>Chính xác</small></div>
       </div>
+      <div id="doneStreak" class="streak hidden"></div>
       <button id="again" class="primary big">Ôn lại</button>
     </div>
   </div>
