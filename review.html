@@ -11,6 +11,14 @@
     <div id="setup" class="card">
       <h1>📚 Ôn tập từ vựng</h1>
 
+      <div id="resumeBanner" class="resume-banner hidden">
+        <div class="rb-text">Bạn đang ôn dở — còn <b id="rbCount">0</b> từ.</div>
+        <div class="rb-actions">
+          <button id="resumeBtn" class="primary">Tiếp tục</button>
+          <button id="dismissResumeBtn" class="ghost">Bỏ qua</button>
+        </div>
+      </div>
+
       <div id="streak" class="streak hidden"></div>
 
       <div id="dash" class="dash"></div>
@@ -46,6 +54,16 @@
           <button data-v="all">Ôn tất cả</button>
         </div>
         <p class="hint" id="scheduleHint"></p>
+      </div>
+
+      <div class="field">
+        <label>Số từ mỗi vòng</label>
+        <select id="batchSize">
+          <option value="10">10 từ</option>
+          <option value="20" selected>20 từ</option>
+          <option value="50">50 từ</option>
+          <option value="all">Tất cả</option>
+        </select>
       </div>
 
       <button id="start" class="primary big">Bắt đầu ôn</button>
@@ -105,7 +123,9 @@
         <div><span id="rAcc">0%</span><small>Chính xác</small></div>
       </div>
       <div id="doneStreak" class="streak hidden"></div>
-      <button id="again" class="primary big">Ôn lại</button>
+      <button id="nextRound" class="primary big hidden">Vòng tiếp theo</button>
+      <button id="again" class="secondary big">Ôn lại</button>
+      <button id="backToList" class="text-btn">📋 Về danh sách từ đã lưu</button>
     </div>
   </div>
 

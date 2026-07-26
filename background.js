@@ -52,6 +52,7 @@ async function lookupDictionary(word) {
 
   let ipa = "";
   let audio = "";
+  let audioScore = -1; // ưu tiên phát âm Anh-Mỹ (us) hơn các giọng khác (uk/au/in...)
   try {
     const res = await fetch(url);
     if (res.ok) {
@@ -62,12 +63,15 @@ async function lookupDictionary(word) {
           if (Array.isArray(entry.phonetics)) {
             for (const p of entry.phonetics) {
               if (p.text && !ipa) ipa = p.text;
-              if (p.audio && !audio) {
-                audio = p.audio.startsWith("//") ? "https:" + p.audio : p.audio;
+              if (p.audio) {
+                const score = accentScore(p.audio);
+                if (score > audioScore) {
+                  audioScore = score;
+                  audio = p.audio.startsWith("//") ? "https:" + p.audio : p.audio;
+                }
               }
             }
           }
-          if (ipa && audio) break;
         }
       }
     }
@@ -76,6 +80,15 @@ async function lookupDictionary(word) {
   }
 
   return { ipa, audio };
+}
+
+// Free Dictionary API trả nhiều audio (us/uk/au...) không theo thứ tự cố định
+// -> chấm điểm để luôn chọn giọng Mỹ nếu có, thay vì lấy audio đầu tiên tìm thấy.
+function accentScore(audioUrl) {
+  const u = audioUrl.toLowerCase();
+  if (/-us(\.|_)|\/us\//.test(u)) return 2;
+  if (/-uk(\.|_)|\/uk\//.test(u)) return 0;
+  return 1; // giọng khác (au, in...) hoặc không rõ -> ưu tiên hơn uk, kém hơn us
 }
 
 // ---- Datamuse (từ điển CMU): IPA dự phòng + level gợi ý theo tần suất ----

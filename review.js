@@ -14,29 +14,40 @@ let selSchedule = "srs";
 let selDeck = "";
 let locked = false; // chặn chấm điểm 2 lần khi đang chờ setTimeout hoặc bấm phím dồn dập
 let streak = { last: "", count: 0 };
+let batchSize = "20"; // số từ mỗi vòng: "10"/"20"/"50"/"all"
+let sessionDoneIds = new Set(); // các từ đã ôn trong chuỗi vòng hiện tại (tránh lặp khi "Ôn tất cả")
+let session = null; // phiên dang dở đọc từ storage (để hiện banner resume)
+let sessionStartedAt = 0;
 
 // ---------- Elements ----------
 const $ = (id) => document.getElementById(id);
 
 // ---------- Khởi tạo ----------
-chrome.storage.local.get({ words: [], decks: ["Mặc định"], streak: { last: "", count: 0 } }, (res) => {
-  allWords = res.words;
-  streak = res.streak || { last: "", count: 0 };
+chrome.storage.local.get(
+  { words: [], decks: ["Mặc định"], streak: { last: "", count: 0 }, batchSize: "20", session: null },
+  (res) => {
+    allWords = res.words;
+    streak = res.streak || { last: "", count: 0 };
+    batchSize = String(res.batchSize || "20");
+    $("batchSize").value = batchSize;
+    session = res.session || null;
 
-  const decks = new Set(res.decks);
-  allWords.forEach((w) => w.deck && decks.add(w.deck));
-  allDecks = [...decks];
+    const decks = new Set(res.decks);
+    allWords.forEach((w) => w.deck && decks.add(w.deck));
+    allDecks = [...decks];
 
-  // áp bộ lọc từ URL (mở từ popup)
-  if (params.get("deck")) selDeck = params.get("deck");
-  if (params.get("level")) $("level").value = params.get("level");
+    // áp bộ lọc từ URL (mở từ popup)
+    if (params.get("deck")) selDeck = params.get("deck");
+    if (params.get("level")) $("level").value = params.get("level");
 
-  renderDeckGrid();
-  renderDash();
-  renderStreakInto("streak");
-  updatePoolInfo();
-  updateScheduleHint();
-});
+    renderDeckGrid();
+    renderDash();
+    renderStreakInto("streak");
+    renderResumeBanner();
+    updatePoolInfo();
+    updateScheduleHint();
+  }
+);
 
 // ---------- Streak (chuỗi ngày ôn liên tiếp) ----------
 function dateStr(d) {
@@ -76,6 +87,105 @@ function updateStreak() {
   }
   chrome.storage.local.set({ streak });
 }
+
+// ---------- Định danh 1 từ (không có id cố định, dùng bộ 3 word+deck+date) ----------
+function idKey(w) {
+  return `${w.word}||${w.deck}||${w.date}`;
+}
+function toId(w) {
+  return { word: w.word, deck: w.deck, date: w.date };
+}
+function findWordById(id) {
+  return allWords.find((w) => w.word === id.word && w.deck === id.deck && w.date === id.date);
+}
+
+// ---------- Resume buổi ôn dang dở ----------
+function renderResumeBanner() {
+  const banner = $("resumeBanner");
+  if (!session || !Array.isArray(session.ids) || !session.ids.length) {
+    banner.classList.add("hidden");
+    return;
+  }
+  const tooOld = !session.startedAt || Date.now() - session.startedAt > DAY;
+  const remainingIds = session.ids.slice(session.current || 0);
+  const validCount = remainingIds.filter((id) => findWordById(id)).length;
+
+  if (tooOld || validCount < 1) {
+    clearSession();
+    banner.classList.add("hidden");
+    return;
+  }
+
+  $("rbCount").textContent = validCount;
+  banner.classList.remove("hidden");
+}
+
+function clearSession() {
+  session = null;
+  chrome.storage.local.remove("session");
+}
+
+function saveSessionState() {
+  session = {
+    ids: queue.map(toId),
+    current,
+    stats,
+    selMode,
+    selSchedule,
+    selDeck,
+    selLevel: $("level").value,
+    batchSize,
+    startedAt: sessionStartedAt,
+  };
+  return session;
+}
+
+function syncButtonGroup(groupId, value) {
+  [...$(groupId).children].forEach((b) => b.classList.toggle("active", b.dataset.v === value));
+}
+
+function resumeSession() {
+  if (!session) return;
+  const remainingIds = session.ids.slice(session.current || 0);
+  const restoredQueue = remainingIds.map(findWordById).filter(Boolean);
+
+  if (!restoredQueue.length) {
+    clearSession();
+    $("resumeBanner").classList.add("hidden");
+    return;
+  }
+
+  selMode = session.selMode || "flashcard";
+  selSchedule = session.selSchedule || "srs";
+  selDeck = session.selDeck || "";
+  $("level").value = session.selLevel || "";
+  batchSize = session.batchSize || "20";
+  $("batchSize").value = batchSize;
+  sessionStartedAt = session.startedAt || Date.now();
+
+  syncButtonGroup("mode", selMode);
+  syncButtonGroup("schedule", selSchedule);
+  renderDeckGrid();
+
+  sessionDoneIds = new Set(session.ids.slice(0, session.current || 0).map(idKey));
+
+  queue = restoredQueue;
+  current = 0;
+  stats = session.stats || { correct: 0, wrong: 0 };
+
+  $("resumeBanner").classList.add("hidden");
+  $("setup").classList.add("hidden");
+  $("done").classList.add("hidden");
+  $("session").classList.remove("hidden");
+  $("total").textContent = queue.length;
+  showCard();
+}
+
+$("resumeBtn").addEventListener("click", resumeSession);
+$("dismissResumeBtn").addEventListener("click", () => {
+  clearSession();
+  $("resumeBanner").classList.add("hidden");
+});
 
 // ---------- Lưới bộ từ ----------
 function renderDeckGrid() {
@@ -157,6 +267,11 @@ $("schedule").addEventListener("click", (e) => {
   updateScheduleHint();
 });
 $("level").addEventListener("change", updatePoolInfo);
+$("batchSize").addEventListener("change", () => {
+  batchSize = $("batchSize").value;
+  chrome.storage.local.set({ batchSize });
+  updatePoolInfo();
+});
 
 function getPool() {
   const d = selDeck;
@@ -173,12 +288,15 @@ function getPool() {
 
 function updatePoolInfo() {
   const n = getPool().length;
+  const batchN = batchSize === "all" ? n : Math.min(n, Number(batchSize));
+  const roundTxt = batchN < n ? ` — vòng này ôn ${batchN} từ` : "";
+
   if (selSchedule === "srs") {
     $("poolInfo").textContent = n
-      ? `${n} từ đến hạn ôn.`
+      ? `${n} từ đến hạn ôn${roundTxt}.`
       : "Không có từ nào đến hạn. Chọn “Ôn tất cả” để ôn ngay.";
   } else {
-    $("poolInfo").textContent = `${n} từ sẽ được ôn.`;
+    $("poolInfo").textContent = n ? `${n} từ sẽ được ôn${roundTxt}.` : "Không có từ nào phù hợp.";
   }
 }
 
@@ -189,20 +307,34 @@ function updateScheduleHint() {
       : "Ôn toàn bộ từ trong bộ/level đã chọn.";
 }
 
-// ---------- Bắt đầu ----------
-$("start").addEventListener("click", () => {
-  queue = shuffle(getPool());
+// ---------- Bắt đầu 1 vòng ôn (dùng chung cho "Bắt đầu ôn" và "Vòng tiếp theo") ----------
+function beginQueue(pool) {
+  const n = batchSize === "all" ? pool.length : Number(batchSize);
+  queue = shuffle(pool).slice(0, n);
   if (!queue.length) {
     alert("Không có từ nào để ôn với lựa chọn hiện tại.");
-    return;
+    return false;
   }
   current = 0;
   stats = { correct: 0, wrong: 0 };
+  sessionStartedAt = Date.now();
   $("setup").classList.add("hidden");
   $("done").classList.add("hidden");
   $("session").classList.remove("hidden");
   $("total").textContent = queue.length;
+  chrome.storage.local.set({ session: saveSessionState() });
   showCard();
+  return true;
+}
+
+$("start").addEventListener("click", () => {
+  sessionDoneIds = new Set();
+  beginQueue(getPool());
+});
+
+$("nextRound").addEventListener("click", () => {
+  const pool = getPool().filter((w) => !sessionDoneIds.has(idKey(w)));
+  beginQueue(pool); // giữ nguyên sessionDoneIds để không lặp từ đã ôn trong chuỗi vòng này
 });
 
 $("again").addEventListener("click", () => {
@@ -216,6 +348,10 @@ $("again").addEventListener("click", () => {
     renderStreakInto("streak");
     updatePoolInfo();
   });
+});
+
+$("backToList").addEventListener("click", () => {
+  location.href = chrome.runtime.getURL("popup.html");
 });
 
 // ---------- Phím tắt ----------
@@ -397,8 +533,11 @@ function grade(word, ok) {
     w.due = Date.now() + BOX_INTERVAL[w.box];
   }
 
-  chrome.storage.local.set({ words: allWords }, () => {
-    current++;
+  sessionDoneIds.add(idKey(word));
+  current++;
+
+  // gộp cùng 1 lần ghi: mất mạng/đóng tab giữa chừng cũng không lệch dữ liệu
+  chrome.storage.local.set({ words: allWords, session: saveSessionState() }, () => {
     showCard();
   });
 }
@@ -415,6 +554,16 @@ function finish() {
 
   updateStreak();
   renderStreakInto("doneStreak");
+  clearSession();
+
+  const remainingPool = getPool().filter((w) => !sessionDoneIds.has(idKey(w)));
+  const nextBtn = $("nextRound");
+  if (remainingPool.length) {
+    nextBtn.textContent = `Vòng tiếp theo (còn ${remainingPool.length} từ)`;
+    nextBtn.classList.remove("hidden");
+  } else {
+    nextBtn.classList.add("hidden");
+  }
 }
 
 // ---------- Tiện ích ----------

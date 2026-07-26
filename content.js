@@ -46,6 +46,7 @@
     (e) => {
       if (e.key !== "Shift" || e.repeat) return;
       if (e.ctrlKey || e.altKey || e.metaKey) return;
+      if (!isContextValid()) return; // tiện ích vừa reload, trang cần F5 lại mới dùng được
 
       const text = getActiveSelection().text || lastSelection;
       if (!text) return;
@@ -80,6 +81,24 @@
       popupEl.remove();
       popupEl = null;
     }
+  }
+
+  // Extension bị reload/cập nhật trong lúc tab đang mở sẵn -> context cũ "chết",
+  // gọi chrome.runtime/chrome.storage sẽ ném "Extension context invalidated".
+  function isContextValid() {
+    try {
+      return !!(chrome.runtime && chrome.runtime.id);
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function showContextInvalidNotice() {
+    const meaningEl = popupEl?.querySelector(".vs-meaning");
+    if (meaningEl) {
+      meaningEl.innerHTML = `<span class="vs-error">⚠ Tiện ích vừa được cập nhật. Tải lại trang (F5) để dùng tiếp.</span>`;
+    }
+    popupEl?.querySelector(".vs-save-box")?.remove();
   }
 
   const LEVELS = ["A1", "A2", "B1", "B2", "C1", "C2"];
@@ -134,46 +153,59 @@
     // không tự động đọc; chỉ phát khi bấm nút loa
 
     // gọi dịch + tra IPA
-    chrome.runtime.sendMessage({ type: "TRANSLATE", word }, (resp) => {
-      const meaningEl = popupEl?.querySelector(".vs-meaning");
-      const altsEl = popupEl?.querySelector(".vs-alts");
-      const phEl = popupEl?.querySelector(".vs-phonetic");
-      if (!meaningEl) return;
+    try {
+      chrome.runtime.sendMessage({ type: "TRANSLATE", word }, (resp) => {
+        const meaningEl = popupEl?.querySelector(".vs-meaning");
+        const altsEl = popupEl?.querySelector(".vs-alts");
+        const phEl = popupEl?.querySelector(".vs-phonetic");
+        if (!meaningEl) return;
 
-      if (resp && resp.ok) {
-        currentMeaning = resp.data.meaning || "(không có bản dịch)";
-        meaningEl.textContent = currentMeaning;
-        const alts = resp.data.alternatives || [];
-        if (alts.length) altsEl.textContent = "Khác: " + alts.join(", ");
-
-        const ipa = resp.data.ipa || "";
-        currentAudio = resp.data.audio || "";
-        if (phEl) {
-          phEl.textContent = ipa ? ipa : "🔈 nhấn loa để nghe phát âm";
+        if (chrome.runtime.lastError) {
+          meaningEl.innerHTML = `<span class="vs-error">Không tra được nghĩa.</span>`;
+          return;
         }
 
-        // tự gợi ý level (nếu người dùng chưa tự chọn)
-        const sugLv = resp.data.level || "";
-        if (sugLv && !selectedLevel) {
-          const btn = popupEl?.querySelector(`.vs-lv[data-lv="${sugLv}"]`);
-          if (btn) {
-            popupEl.querySelectorAll(".vs-lv").forEach((x) => x.classList.remove("active"));
-            btn.classList.add("active", "suggested");
-            btn.title = "Gợi ý tự động";
-            selectedLevel = sugLv;
+        if (resp && resp.ok) {
+          currentMeaning = resp.data.meaning || "(không có bản dịch)";
+          meaningEl.textContent = currentMeaning;
+          const alts = resp.data.alternatives || [];
+          if (alts.length) altsEl.textContent = "Khác: " + alts.join(", ");
+
+          const ipa = resp.data.ipa || "";
+          currentAudio = resp.data.audio || "";
+          if (phEl) {
+            phEl.textContent = ipa ? ipa : "🔈 nhấn loa để nghe phát âm";
           }
+
+          // tự gợi ý level (nếu người dùng chưa tự chọn)
+          const sugLv = resp.data.level || "";
+          if (sugLv && !selectedLevel) {
+            const btn = popupEl?.querySelector(`.vs-lv[data-lv="${sugLv}"]`);
+            if (btn) {
+              popupEl.querySelectorAll(".vs-lv").forEach((x) => x.classList.remove("active"));
+              btn.classList.add("active", "suggested");
+              btn.title = "Gợi ý tự động";
+              selectedLevel = sugLv;
+            }
+          }
+        } else {
+          meaningEl.innerHTML = `<span class="vs-error">Không tra được nghĩa.</span>`;
         }
-      } else {
-        meaningEl.innerHTML = `<span class="vs-error">Không tra được nghĩa.</span>`;
-      }
-    });
+      });
+    } catch (e) {
+      showContextInvalidNotice();
+    }
 
     // ---- Bộ từ ----
     const deckSel = popupEl.querySelector(".vs-deck");
     loadDecks(deckSel);
     // nhớ bộ vừa chọn để lần sau tự chọn lại
     deckSel.addEventListener("change", () => {
-      chrome.storage.local.set({ lastDeck: deckSel.value });
+      try {
+        chrome.storage.local.set({ lastDeck: deckSel.value });
+      } catch (e) {
+        showContextInvalidNotice();
+      }
     });
 
     const newDeckBtn = popupEl.querySelector(".vs-newdeck");
@@ -186,15 +218,19 @@
     popupEl.querySelector(".vs-newdeck-ok").addEventListener("click", () => {
       const name = newDeckInput.value.trim();
       if (!name) return;
-      chrome.storage.local.get({ decks: ["Mặc định"] }, (res) => {
-        const decks = res.decks;
-        if (!decks.includes(name)) decks.push(name);
-        chrome.storage.local.set({ decks, lastDeck: name }, () => {
-          loadDecks(deckSel, name);
-          newDeckRow.style.display = "none";
-          newDeckInput.value = "";
+      try {
+        chrome.storage.local.get({ decks: ["Mặc định"] }, (res) => {
+          const decks = res.decks;
+          if (!decks.includes(name)) decks.push(name);
+          chrome.storage.local.set({ decks, lastDeck: name }, () => {
+            loadDecks(deckSel, name);
+            newDeckRow.style.display = "none";
+            newDeckInput.value = "";
+          });
         });
-      });
+      } catch (e) {
+        showContextInvalidNotice();
+      }
     });
 
     // ---- Level ----
@@ -218,61 +254,72 @@
   }
 
   function loadDecks(selectEl, selectName) {
-    chrome.storage.local.get({ decks: ["Mặc định"], lastDeck: "" }, (res) => {
-      const decks = res.decks.length ? res.decks : ["Mặc định"];
-      selectEl.innerHTML = decks
-        .map((d) => `<option value="${escapeHtml(d)}">${escapeHtml(d)}</option>`)
-        .join("");
-      // ưu tiên: bộ vừa được chỉ định > bộ dùng lần cuối > bộ cuối danh sách
-      let target = selectName || res.lastDeck || decks[decks.length - 1];
-      if (!decks.includes(target)) target = decks[decks.length - 1];
-      selectEl.value = target;
-    });
+    try {
+      chrome.storage.local.get({ decks: ["Mặc định"], lastDeck: "" }, (res) => {
+        const decks = res.decks.length ? res.decks : ["Mặc định"];
+        selectEl.innerHTML = decks
+          .map((d) => `<option value="${escapeHtml(d)}">${escapeHtml(d)}</option>`)
+          .join("");
+        // ưu tiên: bộ vừa được chỉ định > bộ dùng lần cuối > bộ cuối danh sách
+        let target = selectName || res.lastDeck || decks[decks.length - 1];
+        if (!decks.includes(target)) target = decks[decks.length - 1];
+        selectEl.value = target;
+      });
+    } catch (e) {
+      showContextInvalidNotice();
+    }
   }
 
   function saveWord(word, meaning, deck, level, ipa, audio, btn) {
-    chrome.storage.local.get({ words: [] }, (res) => {
-      const words = res.words;
-      const existing = words.find(
-        (w) => w.word.toLowerCase() === word.toLowerCase() && w.deck === deck
-      );
+    try {
+      chrome.storage.local.get({ words: [] }, (res) => {
+        const words = res.words;
+        const existing = words.find(
+          (w) => w.word.toLowerCase() === word.toLowerCase() && w.deck === deck
+        );
 
-      // đã có trong đúng bộ này -> không lưu lại
-      if (existing) {
-        btn.textContent = "⚠ Từ đã có trong bộ này";
-        btn.classList.add("exists");
-        setTimeout(() => {
-          btn.textContent = "💾 Lưu từ";
-          btn.classList.remove("exists");
-        }, 1400);
-        return;
-      }
+        // đã có trong đúng bộ này -> không lưu lại
+        if (existing) {
+          btn.textContent = "⚠ Từ đã có trong bộ này";
+          btn.classList.add("exists");
+          setTimeout(() => {
+            btn.textContent = "💾 Lưu từ";
+            btn.classList.remove("exists");
+          }, 1400);
+          return;
+        }
 
-      words.unshift({
-        word,
-        meaning: meaning || "",
-        deck: deck || "Mặc định",
-        level: level || "",
-        ipa: ipa || "",
-        audio: audio || "",
-        date: new Date().toISOString(),
-        source: location.hostname,
-        // dữ liệu ôn tập (spaced repetition)
-        box: 1,          // hộp Leitner 1..5
-        due: Date.now(), // thời điểm nên ôn lại
-        correct: 0,
-        wrong: 0,
+        words.unshift({
+          word,
+          meaning: meaning || "",
+          deck: deck || "Mặc định",
+          level: level || "",
+          ipa: ipa || "",
+          audio: audio || "",
+          date: new Date().toISOString(),
+          source: location.hostname,
+          // dữ liệu ôn tập (spaced repetition)
+          box: 1,          // hộp Leitner 1..5
+          due: Date.now(), // thời điểm nên ôn lại
+          correct: 0,
+          wrong: 0,
+        });
+
+        chrome.storage.local.set({ words, lastDeck: deck }, () => {
+          btn.textContent = "✓ Đã lưu";
+          btn.classList.add("saved");
+          setTimeout(() => {
+            btn.textContent = "💾 Lưu từ";
+            btn.classList.remove("saved");
+          }, 1200);
+        });
       });
-
-      chrome.storage.local.set({ words, lastDeck: deck }, () => {
-        btn.textContent = "✓ Đã lưu";
-        btn.classList.add("saved");
-        setTimeout(() => {
-          btn.textContent = "💾 Lưu từ";
-          btn.classList.remove("saved");
-        }, 1200);
-      });
-    });
+    } catch (e) {
+      btn.textContent = "⚠ Tải lại trang để lưu";
+      setTimeout(() => {
+        btn.textContent = "💾 Lưu từ";
+      }, 1800);
+    }
   }
 
   function playPronunciation(text, audioUrl) {
