@@ -169,7 +169,8 @@ function showFlashcard(w) {
   $("fcSpeak").onclick = (e) => { e.stopPropagation(); playPron(w.word, w.audio); };
 
   flip.onclick = () => {
-    flip.classList.add("flipped");
+    flip.classList.toggle("flipped");
+    // hiện nút chấm điểm sau lần lật đầu (giữ lại kể cả khi lật về mặt trước)
     $("fcGrade").classList.remove("hidden");
   };
 
