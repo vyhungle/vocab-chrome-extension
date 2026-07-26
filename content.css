@@ -113,3 +113,4 @@
 }
 .vs-save-btn:hover { background: #1d4ed8; }
 .vs-save-btn.saved { background: #16a34a; }
+.vs-save-btn.exists { background: #d97706; }

@@ -3,42 +3,77 @@
   let lastRect = null;
   let popupEl = null;
 
-  // Ghi lại vùng chọn mỗi khi người dùng bôi đen
-  document.addEventListener("selectionchange", () => {
-    const sel = window.getSelection();
-    const text = sel ? sel.toString().trim() : "";
-    if (text) {
-      lastSelection = text;
-      try {
-        const range = sel.getRangeAt(0);
-        const rect = range.getBoundingClientRect();
-        if (rect && (rect.width || rect.height)) lastRect = rect;
-      } catch (e) {}
+  // Lấy vùng chọn hiện tại (kể cả bên trong Shadow DOM)
+  function getActiveSelection() {
+    let sel = window.getSelection();
+    let text = sel ? sel.toString().trim() : "";
+    // nếu con trỏ nằm trong shadow root mở, thử selection của shadow root
+    if (!text) {
+      let node = document.activeElement;
+      while (node && node.shadowRoot) {
+        const ss = node.shadowRoot.getSelection && node.shadowRoot.getSelection();
+        if (ss && ss.toString().trim()) {
+          sel = ss;
+          text = ss.toString().trim();
+          break;
+        }
+        node = node.shadowRoot.activeElement;
+      }
     }
-  });
+    return { sel, text };
+  }
 
-  // Nhấn Shift để tra từ đang bôi đen
-  document.addEventListener("keydown", (e) => {
-    if (e.key !== "Shift" || e.repeat) return;
-    if (e.ctrlKey || e.altKey || e.metaKey) return;
+  // Ghi lại vùng chọn mỗi khi người dùng bôi đen
+  document.addEventListener(
+    "selectionchange",
+    () => {
+      const { sel, text } = getActiveSelection();
+      if (text) {
+        lastSelection = text;
+        try {
+          const range = sel.getRangeAt(0);
+          const rect = range.getBoundingClientRect();
+          if (rect && (rect.width || rect.height)) lastRect = rect;
+        } catch (e) {}
+      }
+    },
+    true
+  );
 
-    const sel = window.getSelection();
-    const text = (sel ? sel.toString().trim() : "") || lastSelection;
-    if (!text) return;
+  // Nhấn Shift để tra từ đang bôi đen (capture=true để nhận trước khi trang chặn)
+  document.addEventListener(
+    "keydown",
+    (e) => {
+      if (e.key !== "Shift" || e.repeat) return;
+      if (e.ctrlKey || e.altKey || e.metaKey) return;
 
-    const wordCount = text.split(/\s+/).length;
-    if (wordCount > 4 || text.length > 60) return;
+      const text = getActiveSelection().text || lastSelection;
+      if (!text) return;
 
-    e.preventDefault();
-    showPopup(text, lastRect);
-  });
+      const wordCount = text.split(/\s+/).length;
+      if (wordCount > 4 || text.length > 60) return;
 
-  document.addEventListener("mousedown", (e) => {
-    if (popupEl && !popupEl.contains(e.target)) removePopup();
-  });
-  document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") removePopup();
-  });
+      e.preventDefault();
+      e.stopPropagation();
+      showPopup(text, lastRect);
+    },
+    true
+  );
+
+  document.addEventListener(
+    "mousedown",
+    (e) => {
+      if (popupEl && !popupEl.contains(e.target)) removePopup();
+    },
+    true
+  );
+  document.addEventListener(
+    "keydown",
+    (e) => {
+      if (e.key === "Escape") removePopup();
+    },
+    true
+  );
 
   function removePopup() {
     if (popupEl) {
@@ -136,6 +171,10 @@
     // ---- Bộ từ ----
     const deckSel = popupEl.querySelector(".vs-deck");
     loadDecks(deckSel);
+    // nhớ bộ vừa chọn để lần sau tự chọn lại
+    deckSel.addEventListener("change", () => {
+      chrome.storage.local.set({ lastDeck: deckSel.value });
+    });
 
     const newDeckBtn = popupEl.querySelector(".vs-newdeck");
     const newDeckRow = popupEl.querySelector(".vs-newdeck-row");
@@ -150,7 +189,7 @@
       chrome.storage.local.get({ decks: ["Mặc định"] }, (res) => {
         const decks = res.decks;
         if (!decks.includes(name)) decks.push(name);
-        chrome.storage.local.set({ decks }, () => {
+        chrome.storage.local.set({ decks, lastDeck: name }, () => {
           loadDecks(deckSel, name);
           newDeckRow.style.display = "none";
           newDeckInput.value = "";
@@ -179,13 +218,15 @@
   }
 
   function loadDecks(selectEl, selectName) {
-    chrome.storage.local.get({ decks: ["Mặc định"] }, (res) => {
+    chrome.storage.local.get({ decks: ["Mặc định"], lastDeck: "" }, (res) => {
       const decks = res.decks.length ? res.decks : ["Mặc định"];
       selectEl.innerHTML = decks
         .map((d) => `<option value="${escapeHtml(d)}">${escapeHtml(d)}</option>`)
         .join("");
-      // mặc định chọn bộ cuối cùng (bộ mới tạo gần nhất)
-      selectEl.value = selectName || decks[decks.length - 1];
+      // ưu tiên: bộ vừa được chỉ định > bộ dùng lần cuối > bộ cuối danh sách
+      let target = selectName || res.lastDeck || decks[decks.length - 1];
+      if (!decks.includes(target)) target = decks[decks.length - 1];
+      selectEl.value = target;
     });
   }
 
@@ -195,29 +236,35 @@
       const existing = words.find(
         (w) => w.word.toLowerCase() === word.toLowerCase() && w.deck === deck
       );
+
+      // đã có trong đúng bộ này -> không lưu lại
       if (existing) {
-        existing.level = level || existing.level;
-        existing.meaning = meaning || existing.meaning;
-        existing.ipa = ipa || existing.ipa;
-        existing.audio = audio || existing.audio;
-      } else {
-        words.unshift({
-          word,
-          meaning: meaning || "",
-          deck: deck || "Mặc định",
-          level: level || "",
-          ipa: ipa || "",
-          audio: audio || "",
-          date: new Date().toISOString(),
-          source: location.hostname,
-          // dữ liệu ôn tập (spaced repetition)
-          box: 1,          // hộp Leitner 1..5
-          due: Date.now(), // thời điểm nên ôn lại
-          correct: 0,
-          wrong: 0,
-        });
+        btn.textContent = "⚠ Từ đã có trong bộ này";
+        btn.classList.add("exists");
+        setTimeout(() => {
+          btn.textContent = "💾 Lưu từ";
+          btn.classList.remove("exists");
+        }, 1400);
+        return;
       }
-      chrome.storage.local.set({ words }, () => {
+
+      words.unshift({
+        word,
+        meaning: meaning || "",
+        deck: deck || "Mặc định",
+        level: level || "",
+        ipa: ipa || "",
+        audio: audio || "",
+        date: new Date().toISOString(),
+        source: location.hostname,
+        // dữ liệu ôn tập (spaced repetition)
+        box: 1,          // hộp Leitner 1..5
+        due: Date.now(), // thời điểm nên ôn lại
+        correct: 0,
+        wrong: 0,
+      });
+
+      chrome.storage.local.set({ words, lastDeck: deck }, () => {
         btn.textContent = "✓ Đã lưu";
         btn.classList.add("saved");
         setTimeout(() => {
