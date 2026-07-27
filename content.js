@@ -118,6 +118,7 @@
       </div>
       <div class="vs-phonetic">🔈 nhấn loa để nghe phát âm</div>
       <div class="vs-meaning"><span class="vs-loading">Đang tra…</span></div>
+      <div class="vs-meaning-hint" style="display:none;">✏️ Bấm vào nghĩa để sửa nếu dịch chưa đúng</div>
       <div class="vs-alts"></div>
 
       <div class="vs-save-box">
@@ -152,48 +153,73 @@
 
     // không tự động đọc; chỉ phát khi bấm nút loa
 
-    // gọi dịch + tra IPA
+    // gọi dịch nghĩa và tra IPA/audio ĐỘC LẬP nhau -> cái nào xong trước hiện trước,
+    // không đợi cả 2 (MyMemory và Dictionary/Datamuse nhanh chậm khác nhau).
     try {
-      chrome.runtime.sendMessage({ type: "TRANSLATE", word }, (resp) => {
+      chrome.runtime.sendMessage({ type: "MEANING", word }, (resp) => {
         const meaningEl = popupEl?.querySelector(".vs-meaning");
         const altsEl = popupEl?.querySelector(".vs-alts");
-        const phEl = popupEl?.querySelector(".vs-phonetic");
+        const hintEl = popupEl?.querySelector(".vs-meaning-hint");
         if (!meaningEl) return;
 
-        if (chrome.runtime.lastError) {
+        if (chrome.runtime.lastError || !(resp && resp.ok)) {
           meaningEl.innerHTML = `<span class="vs-error">Không tra được nghĩa.</span>`;
           return;
         }
 
-        if (resp && resp.ok) {
-          currentMeaning = resp.data.meaning || "(không có bản dịch)";
-          meaningEl.textContent = currentMeaning;
-          const alts = resp.data.alternatives || [];
-          if (alts.length) altsEl.textContent = "Khác: " + alts.join(", ");
+        currentMeaning = resp.data.meaning || "(không có bản dịch)";
+        meaningEl.textContent = currentMeaning;
 
-          const ipa = resp.data.ipa || "";
-          currentAudio = resp.data.audio || "";
-          if (phEl) {
-            phEl.textContent = ipa ? ipa : "🔈 nhấn loa để nghe phát âm";
-          }
+        // dịch tự động đôi khi sai -> cho sửa trực tiếp trước khi lưu
+        meaningEl.contentEditable = "true";
+        meaningEl.addEventListener("input", () => {
+          currentMeaning = meaningEl.textContent.trim();
+        });
+        if (hintEl) hintEl.style.display = "";
 
-          // tự gợi ý level (nếu người dùng chưa tự chọn)
-          const sugLv = resp.data.level || "";
-          if (sugLv && !selectedLevel) {
-            const btn = popupEl?.querySelector(`.vs-lv[data-lv="${sugLv}"]`);
-            if (btn) {
-              popupEl.querySelectorAll(".vs-lv").forEach((x) => x.classList.remove("active"));
-              btn.classList.add("active", "suggested");
-              btn.title = "Gợi ý tự động";
-              selectedLevel = sugLv;
-            }
-          }
-        } else {
-          meaningEl.innerHTML = `<span class="vs-error">Không tra được nghĩa.</span>`;
+        const alts = resp.data.alternatives || [];
+        if (alts.length) {
+          altsEl.innerHTML =
+            "Khác: " +
+            alts
+              .map((a) => `<span class="vs-alt-choice" data-alt="${escapeHtml(a)}">${escapeHtml(a)}</span>`)
+              .join(", ");
+          altsEl.querySelectorAll(".vs-alt-choice").forEach((el) => {
+            el.addEventListener("click", () => {
+              currentMeaning = el.dataset.alt;
+              meaningEl.textContent = currentMeaning;
+            });
+          });
         }
       });
     } catch (e) {
       showContextInvalidNotice();
+    }
+
+    try {
+      chrome.runtime.sendMessage({ type: "PRONOUNCE", word }, (resp) => {
+        const phEl = popupEl?.querySelector(".vs-phonetic");
+        if (!phEl) return;
+        if (chrome.runtime.lastError || !(resp && resp.ok)) return; // giữ nguyên hint "nhấn loa" mặc định
+
+        const ipa = resp.data.ipa || "";
+        currentAudio = resp.data.audio || "";
+        phEl.textContent = ipa ? ipa : "🔈 nhấn loa để nghe phát âm";
+
+        // tự gợi ý level (nếu người dùng chưa tự chọn)
+        const sugLv = resp.data.level || "";
+        if (sugLv && !selectedLevel) {
+          const btn = popupEl?.querySelector(`.vs-lv[data-lv="${sugLv}"]`);
+          if (btn) {
+            popupEl.querySelectorAll(".vs-lv").forEach((x) => x.classList.remove("active"));
+            btn.classList.add("active", "suggested");
+            btn.title = "Gợi ý tự động";
+            selectedLevel = sugLv;
+          }
+        }
+      });
+    } catch (e) {
+      // im lặng: nghĩa vẫn hiện bình thường dù tra phát âm lỗi
     }
 
     // ---- Bộ từ ----

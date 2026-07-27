@@ -1,22 +1,28 @@
 // Xử lý các yêu cầu từ content script (fetch chạy ở background để tránh CORS)
+// Nghĩa và phát âm tách thành 2 message riêng để content script hiện được
+// cái nào xong trước, không phải đợi cả 2 (API dịch/IPA nhanh chậm khác nhau).
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
-  if (msg.type === "TRANSLATE") {
-    handleWord(msg.word)
+  if (msg.type === "MEANING") {
+    translateWord(msg.word)
       .then((data) => sendResponse({ ok: true, data }))
       .catch((err) => sendResponse({ ok: false, error: String(err) }));
     return true; // giữ kênh mở cho phản hồi bất đồng bộ
   }
+  if (msg.type === "PRONOUNCE") {
+    handlePronounce(msg.word)
+      .then((data) => sendResponse({ ok: true, data }))
+      .catch((err) => sendResponse({ ok: false, error: String(err) }));
+    return true;
+  }
 });
 
-async function handleWord(word) {
-  // chạy song song: dịch nghĩa + IPA/audio (dictionary) + IPA/level (datamuse)
-  const [translation, dict, dm] = await Promise.all([
-    translateWord(word).catch(() => ({ meaning: "", alternatives: [] })),
+async function handlePronounce(word) {
+  // chạy song song: IPA/audio (dictionary) + IPA dự phòng/level (datamuse)
+  const [dict, dm] = await Promise.all([
     lookupDictionary(word).catch(() => ({ ipa: "", audio: "" })),
     lookupDatamuse(word).catch(() => ({ ipa: "", level: "" })),
   ]);
   return {
-    ...translation,
     ipa: dict.ipa || dm.ipa || "", // ưu tiên IPA giọng Anh của dictionary
     audio: dict.audio || "",
     level: dm.level || "", // level CEFR gợi ý theo tần suất từ

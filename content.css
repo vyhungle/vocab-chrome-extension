@@ -59,6 +59,21 @@
   color: #1e293b;
   line-height: 1.4;
 }
+.vs-meaning[contenteditable="true"] {
+  cursor: text;
+  border-bottom: 1px dashed #cbd5e1;
+  padding-bottom: 2px;
+}
+.vs-meaning[contenteditable="true"]:hover,
+.vs-meaning[contenteditable="true"]:focus {
+  border-bottom-color: #2563eb;
+  outline: none;
+}
+.vs-meaning-hint {
+  font-size: 10px;
+  color: #94a3b8;
+  margin-top: 2px;
+}
 
 .vs-loading { color: #94a3b8; font-style: italic; }
 .vs-error { color: #dc2626; font-size: 13px; }
@@ -68,6 +83,13 @@
   color: #64748b;
   margin-top: 6px;
 }
+.vs-alt-choice {
+  cursor: pointer;
+  color: #2563eb;
+  text-decoration: underline;
+  text-decoration-style: dotted;
+}
+.vs-alt-choice:hover { color: #1d4ed8; }
 
 /* ---- Khu vực lưu ---- */
 .vs-save-box {
