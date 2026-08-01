@@ -7,7 +7,8 @@
   "host_permissions": [
     "https://api.mymemory.translated.net/*",
     "https://api.dictionaryapi.dev/*",
-    "https://api.datamuse.com/*"
+    "https://api.datamuse.com/*",
+    "https://oemuptgkxjddzpljdnrg.supabase.co/*"
   ],
   "background": {
     "service_worker": "background.js"
@@ -15,7 +16,7 @@
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": ["content.js"],
+      "js": ["migrate.js", "content.js"],
       "css": ["content.css"],
       "run_at": "document_idle",
       "all_frames": true

@@ -1,20 +1,21 @@
 .vs-popup {
   position: absolute;
   z-index: 2147483647;
-  width: 280px;
+  width: 290px;
   background: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: 12px;
-  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.18);
+  border: 1px solid #e6e8f0;
+  border-radius: 16px;
+  box-shadow: 0 16px 40px -6px rgba(31, 35, 51, 0.16);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  color: #1e293b;
-  padding: 12px 14px;
-  animation: vs-fade 0.12s ease-out;
+  color: #1f2333;
+  padding: 14px 16px;
+  animation: vs-fade 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+  -webkit-font-smoothing: antialiased;
 }
 
 @keyframes vs-fade {
-  from { opacity: 0; transform: translateY(-4px); }
-  to { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; transform: scale(0.96) translateY(-6px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
 }
 
 .vs-header {
@@ -25,114 +26,126 @@
 }
 
 .vs-word {
-  font-size: 17px;
-  font-weight: 700;
-  color: #0f172a;
+  font-size: 18px;
+  font-weight: 800;
+  color: #1f2333;
   word-break: break-word;
+  letter-spacing: -0.01em;
 }
 
 .vs-actions {
   display: flex;
-  gap: 2px;
+  gap: 4px;
   flex-shrink: 0;
 }
 
 .vs-btn {
-  background: transparent;
+  background: #edf0ff;
   border: none;
   cursor: pointer;
-  font-size: 15px;
-  padding: 4px 6px;
-  border-radius: 6px;
+  font-size: 14px;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   line-height: 1;
+  transition: background 0.15s ease;
 }
-.vs-btn:hover { background: #f1f5f9; }
+.vs-btn:hover { background: #d0d7ff; }
 
 .vs-phonetic {
   font-size: 12px;
-  color: #64748b;
-  margin: 4px 0 6px;
+  font-weight: 500;
+  color: #7c5cff;
+  margin: 4px 0 8px;
 }
 
 .vs-meaning {
   font-size: 15px;
-  color: #1e293b;
+  color: #1f2333;
+  font-weight: 500;
   line-height: 1.4;
 }
 .vs-meaning[contenteditable="true"] {
   cursor: text;
-  border-bottom: 1px dashed #cbd5e1;
+  border-bottom: 1.5px dashed #cbd5e1;
   padding-bottom: 2px;
 }
 .vs-meaning[contenteditable="true"]:hover,
 .vs-meaning[contenteditable="true"]:focus {
-  border-bottom-color: #2563eb;
+  border-bottom-color: #6366f1;
   outline: none;
 }
 .vs-meaning-hint {
   font-size: 10px;
-  color: #94a3b8;
-  margin-top: 2px;
+  color: #9aa1b2;
+  margin-top: 3px;
+  font-weight: 600;
 }
 
-.vs-loading { color: #94a3b8; font-style: italic; }
-.vs-error { color: #dc2626; font-size: 13px; }
+.vs-loading { color: #9aa1b2; font-style: italic; font-size: 13px; }
+.vs-error { color: #ef4444; font-size: 13px; font-weight: 600; }
 
 .vs-alts {
   font-size: 12px;
-  color: #64748b;
-  margin-top: 6px;
+  color: #6b7280;
+  margin-top: 8px;
 }
 .vs-alt-choice {
   cursor: pointer;
-  color: #2563eb;
+  color: #6366f1;
+  font-weight: 600;
   text-decoration: underline;
   text-decoration-style: dotted;
 }
-.vs-alt-choice:hover { color: #1d4ed8; }
+.vs-alt-choice:hover { color: #4f46e5; }
 
 /* ---- Khu vực lưu ---- */
 .vs-save-box {
-  margin-top: 10px;
-  padding-top: 10px;
-  border-top: 1px solid #e2e8f0;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #e6e8f0;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
 }
-.vs-row { display: flex; align-items: center; gap: 6px; }
-.vs-label { font-size: 12px; color: #64748b; width: 46px; flex-shrink: 0; }
+.vs-row { display: flex; align-items: center; gap: 8px; }
+.vs-label { font-size: 12px; font-weight: 700; color: #6b7280; width: 46px; flex-shrink: 0; }
 .vs-deck {
-  flex: 1; font-size: 13px; padding: 5px 6px;
-  border: 1px solid #e2e8f0; border-radius: 7px; background: #fff; color: #1e293b;
+  flex: 1; font-size: 13px; font-weight: 600; padding: 6px 8px;
+  border: 1px solid #e6e8f0; border-radius: 8px; background: #fff; color: #1f2333;
 }
 .vs-newdeck {
-  border: 1px solid #e2e8f0; background: #fff; border-radius: 7px;
-  width: 28px; height: 28px; cursor: pointer; font-size: 16px; line-height: 1; color: #2563eb;
+  border: 1px solid #e6e8f0; background: #edf0ff; border-radius: 8px;
+  width: 30px; height: 30px; cursor: pointer; font-size: 16px; line-height: 1; color: #6366f1;
+  display: flex; align-items: center; justify-content: center;
 }
-.vs-newdeck:hover { background: #f1f5f9; }
+.vs-newdeck:hover { background: #d0d7ff; }
 .vs-newdeck-row { display: flex; gap: 6px; }
 .vs-newdeck-input {
-  flex: 1; font-size: 13px; padding: 5px 8px;
-  border: 1px solid #e2e8f0; border-radius: 7px;
+  flex: 1; font-size: 13px; font-weight: 600; padding: 6px 8px;
+  border: 1px solid #e6e8f0; border-radius: 8px;
 }
 .vs-newdeck-ok {
-  border: none; background: #2563eb; color: #fff; border-radius: 7px;
-  padding: 0 12px; cursor: pointer; font-size: 13px;
+  border: none; background: linear-gradient(135deg, #6366f1, #4f46e5); color: #fff; border-radius: 8px;
+  padding: 0 12px; cursor: pointer; font-size: 13px; font-weight: 700;
 }
 .vs-levels { display: flex; gap: 4px; flex: 1; }
 .vs-lv {
-  flex: 1; font-size: 12px; padding: 5px 0; cursor: pointer;
-  border: 1px solid #e2e8f0; border-radius: 7px; background: #fff; color: #475569;
+  flex: 1; font-size: 11px; font-weight: 700; padding: 5px 0; cursor: pointer; text-align: center;
+  border: 1px solid #e6e8f0; border-radius: 999px; background: #fff; color: #6b7280;
+  transition: all 0.15s ease;
 }
-.vs-lv:hover { background: #f1f5f9; }
-.vs-lv.active { background: #2563eb; color: #fff; border-color: #2563eb; }
-/* level được tự gợi ý: xanh lá để phân biệt với lựa chọn thủ công */
-.vs-lv.active.suggested { background: #16a34a; border-color: #16a34a; }
+.vs-lv:hover { background: #f7f8fc; border-color: #cbd5e1; }
+.vs-lv.active { background: linear-gradient(135deg, #6366f1, #4f46e5); color: #fff; border-color: transparent; }
+.vs-lv.active.suggested { background: #17b26a; border-color: transparent; }
 .vs-save-btn {
-  margin-top: 2px; padding: 8px; font-size: 14px; cursor: pointer;
-  border: none; border-radius: 8px; background: #2563eb; color: #fff; font-weight: 600;
+  margin-top: 4px; padding: 10px; font-size: 14px; cursor: pointer;
+  border: none; border-radius: 999px; background: linear-gradient(135deg, #6366f1, #4f46e5); color: #fff; font-weight: 700;
+  box-shadow: 0 6px 16px rgba(99, 102, 241, 0.3); transition: all 0.15s ease;
 }
-.vs-save-btn:hover { background: #1d4ed8; }
-.vs-save-btn.saved { background: #16a34a; }
-.vs-save-btn.exists { background: #d97706; }
+.vs-save-btn:hover { background: linear-gradient(135deg, #4f46e5, #4338ca); transform: translateY(-1px); }
+.vs-save-btn.saved { background: #17b26a; box-shadow: none; }
+.vs-save-btn.exists { background: #f59e0b; box-shadow: none; }

@@ -6,10 +6,25 @@
   <link rel="stylesheet" href="review.css">
 </head>
 <body>
-  <div class="wrap">
-    <!-- Màn hình thiết lập -->
-    <div id="setup" class="card">
-      <h1>📚 Ôn tập từ vựng</h1>
+  <div class="app">
+    <nav class="sidebar" id="sidebar">
+      <div class="sidebar-brand">📚 VocabShift</div>
+      <button class="nav-item active" id="navSetup" data-page="setup">🏠 Ôn tập</button>
+      <button class="nav-item" id="navBrowse" data-page="browse">📖 Từ đã học</button>
+      <div class="sidebar-lock-msg hidden" id="sidebarLockMsg">🔒 Đang trong buổi ôn</div>
+    </nav>
+
+    <main class="content">
+    <div class="wrap">
+    <!-- Màn hình thiết lập (Dashboard) -->
+    <div id="setup" class="card setup-dashboard">
+      <div class="setup-header">
+        <div class="header-titles">
+          <h1>👋 Chào bạn, hôm nay cùng ôn từ vựng nhé!</h1>
+          <p class="subtitle">Chọn bộ từ bên dưới hoặc bấm <strong>Ôn ngay</strong> để bắt đầu luyện tập hiệu quả</p>
+        </div>
+        <button id="quickStartBtn" class="primary quick-start-btn">🚀 Ôn tập ngay</button>
+      </div>
 
       <div id="resumeBanner" class="resume-banner hidden">
         <div class="rb-text">Bạn đang ôn dở — còn <b id="rbCount">0</b> từ.</div>
@@ -23,55 +38,56 @@
 
       <div id="dash" class="dash"></div>
 
-      <div class="field">
-        <label>Bộ từ</label>
-        <input type="text" id="deckFilter" class="deck-filter hidden" placeholder="🔍 Tìm bộ từ…" />
+      <div class="field deck-field">
+        <div class="deck-header">
+          <label>📚 Danh sách bộ từ</label>
+          <input type="text" id="deckFilter" class="deck-filter hidden" placeholder="🔍 Tìm bộ từ…" />
+        </div>
         <div class="deck-grid" id="deckGrid"></div>
       </div>
 
-      <div class="field">
-        <label>Level</label>
-        <select id="level">
-          <option value="">Tất cả level</option>
-          <option>A1</option><option>A2</option><option>B1</option>
-          <option>B2</option><option>C1</option><option>C2</option>
-        </select>
+      <div class="study-tip-banner">
+        <span class="tip-icon">💡</span>
+        <div class="tip-content">
+          <b>Mẹo học tập hiệu quả:</b> Ôn từ vựng đều đặn 10–15 phút mỗi ngày theo thuật toán lặp lại ngắt quãng (SRS) giúp tăng 300% khả năng ghi nhớ dài hạn!
+        </div>
       </div>
+    </div>
 
-      <div class="field">
-        <label>Kiểu ôn</label>
-        <div class="btn-group" id="mode">
-          <button data-v="flashcard" class="active">Flashcard</button>
-          <button data-v="quiz">Trắc nghiệm</button>
-          <button data-v="type">Gõ lại từ</button>
+    <!-- Xem từ đã học -->
+    <div id="browse" class="card hidden">
+      <div class="browse-head">
+        <div class="browse-title-group">
+          <h1>📖 Từ vựng đã lưu & đã học</h1>
+          <p class="browse-subtitle">Tra cứu danh sách từ vựng, cấp độ và mức độ ghi nhớ (SRS Leitner)</p>
         </div>
       </div>
 
-      <div class="field">
-        <label>Chế độ</label>
-        <div class="btn-group" id="schedule">
-          <button data-v="srs" class="active">Đến hạn (thông minh)</button>
-          <button data-v="all">Ôn tất cả</button>
+      <div class="browse-filter-bar">
+        <div class="field search-field">
+          <input type="text" id="browseSearch" class="deck-filter" placeholder="🔍 Tìm kiếm từ vựng, phiên âm hoặc nghĩa tiếng Việt…" />
         </div>
-        <p class="hint" id="scheduleHint"></p>
+
+        <div class="browse-filters">
+          <select id="browseDeck"><option value="">Tất cả bộ</option></select>
+          <select id="browseLevel">
+            <option value="">Tất cả level</option>
+            <option>A1</option><option>A2</option><option>B1</option>
+            <option>B2</option><option>C1</option><option>C2</option>
+          </select>
+          <select id="browseMastery">
+            <option value="">Mọi mức độ ghi nhớ</option>
+            <option value="mastered">🌟 Đã ghi nhớ (Box 4-5)</option>
+            <option value="learning">🌱 Đang luyện tập (Box 1-3)</option>
+          </select>
+        </div>
       </div>
 
-      <div class="field">
-        <label>Số từ mỗi vòng</label>
-        <select id="batchSize">
-          <option value="10">10 từ</option>
-          <option value="20" selected>20 từ</option>
-          <option value="50">50 từ</option>
-          <option value="all">Tất cả</option>
-        </select>
-      </div>
-
-      <button id="start" class="primary big">Bắt đầu ôn</button>
-      <p class="hint" id="poolInfo"></p>
+      <div class="browse-list" id="browseList"></div>
     </div>
 
     <!-- Màn hình ôn -->
-    <div id="session" class="card hidden">
+    <div id="session" class="card narrow hidden">
       <div class="progress"><div id="progressBar"></div></div>
       <div class="counter"><span id="idx">0</span>/<span id="total">0</span></div>
 
@@ -114,7 +130,7 @@
     </div>
 
     <!-- Kết quả -->
-    <div id="done" class="card hidden">
+    <div id="done" class="card narrow hidden">
       <h1>🎉 Xong buổi ôn!</h1>
       <div class="stats">
         <div><span id="rCorrect">0</span><small>Đúng</small></div>
@@ -127,8 +143,69 @@
       <button id="again" class="secondary big">Ôn lại</button>
       <button id="backToList" class="text-btn">📋 Về danh sách từ đã lưu</button>
     </div>
+    </div>
+    </main>
   </div>
 
+  <!-- Modal cấu hình ôn tập -->
+  <div id="configModal" class="modal-overlay hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div>
+          <h2 id="modalDeckTitle">⚙️ Cấu hình buổi ôn</h2>
+          <p class="modal-subtitle" id="modalDeckSub">Tùy chỉnh chế độ học trước khi bắt đầu</p>
+        </div>
+        <button id="closeConfigModal" class="modal-close-btn" aria-label="Đóng">&times;</button>
+      </div>
+
+      <div class="modal-body">
+        <div class="field">
+          <label>Level từ vựng</label>
+          <select id="level">
+            <option value="">Tất cả level</option>
+            <option>A1</option><option>A2</option><option>B1</option>
+            <option>B2</option><option>C1</option><option>C2</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label>Kiểu ôn tập</label>
+          <div class="btn-group" id="mode">
+            <button data-v="flashcard" class="active">🎴 Flashcard</button>
+            <button data-v="quiz">🧪 Trắc nghiệm</button>
+            <button data-v="type">✍️ Gõ lại từ</button>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Chế độ luyện tập</label>
+          <div class="btn-group" id="schedule">
+            <button data-v="srs" class="active">⚡ Đến hạn (SRS)</button>
+            <button data-v="all">📖 Ôn tất cả</button>
+          </div>
+          <p class="hint" id="scheduleHint"></p>
+        </div>
+
+        <div class="field">
+          <label>Số từ mỗi vòng</label>
+          <select id="batchSize">
+            <option value="10">10 từ</option>
+            <option value="20" selected>20 từ</option>
+            <option value="50">50 từ</option>
+            <option value="all">Tất cả</option>
+          </select>
+        </div>
+
+        <p class="hint pool-info-modal" id="poolInfo"></p>
+      </div>
+
+      <div class="modal-footer">
+        <button id="start" class="primary big">🚀 Bắt đầu ôn ngay</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="migrate.js"></script>
   <script src="review.js"></script>
 </body>
 </html>

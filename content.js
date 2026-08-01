@@ -1,18 +1,18 @@
 (() => {
-  let lastSelection = "";
-  let lastRect = null;
   let popupEl = null;
 
   // Lấy vùng chọn hiện tại (kể cả bên trong Shadow DOM)
   function getActiveSelection() {
     let sel = window.getSelection();
-    let text = sel ? sel.toString().trim() : "";
+    if (!sel || sel.isCollapsed) return { sel: null, text: "" };
+    let text = sel.toString().trim();
+
     // nếu con trỏ nằm trong shadow root mở, thử selection của shadow root
     if (!text) {
       let node = document.activeElement;
       while (node && node.shadowRoot) {
         const ss = node.shadowRoot.getSelection && node.shadowRoot.getSelection();
-        if (ss && ss.toString().trim()) {
+        if (ss && !ss.isCollapsed && ss.toString().trim()) {
           sel = ss;
           text = ss.toString().trim();
           break;
@@ -23,40 +23,45 @@
     return { sel, text };
   }
 
-  // Ghi lại vùng chọn mỗi khi người dùng bôi đen
-  document.addEventListener(
-    "selectionchange",
-    () => {
-      const { sel, text } = getActiveSelection();
-      if (text) {
-        lastSelection = text;
-        try {
-          const range = sel.getRangeAt(0);
-          const rect = range.getBoundingClientRect();
-          if (rect && (rect.width || rect.height)) lastRect = rect;
-        } catch (e) {}
-      }
-    },
-    true
-  );
-
   // Nhấn Shift để tra từ đang bôi đen (capture=true để nhận trước khi trang chặn)
   document.addEventListener(
     "keydown",
     (e) => {
       if (e.key !== "Shift" || e.repeat) return;
       if (e.ctrlKey || e.altKey || e.metaKey) return;
-      if (!isContextValid()) return; // tiện ích vừa reload, trang cần F5 lại mới dùng được
 
-      const text = getActiveSelection().text || lastSelection;
-      if (!text) return;
+      // Không nổ popup tra từ khi người dùng đang nhập văn bản trong input/textarea/contenteditable
+      const targetTag = (e.target.tagName || "").toLowerCase();
+      if (e.target.isContentEditable || targetTag === "input" || targetTag === "textarea") return;
+
+      // KHI KHÔNG BÔI ĐEN VĂN BẢN (sel.isCollapsed === true HOẶC text rỗng) -> DỪNG NGAY
+      const { sel, text } = getActiveSelection();
+      if (!text || !sel || sel.isCollapsed) return;
 
       const wordCount = text.split(/\s+/).length;
       if (wordCount > 4 || text.length > 60) return;
 
+      let rect = null;
+      try {
+        if (sel.rangeCount > 0) {
+          const range = sel.getRangeAt(0);
+          const r = range.getBoundingClientRect();
+          if (r && (r.width || r.height)) rect = r;
+        }
+      } catch (err) {}
+
+      // Nếu không lấy được vị trí bôi đen thực tế -> không hiện popup
+      if (!rect) return;
+
+      if (!isContextValid()) {
+        showPopup(text, rect);
+        showContextInvalidNotice();
+        return;
+      }
+
       e.preventDefault();
       e.stopPropagation();
-      showPopup(text, lastRect);
+      showPopup(text, rect);
     },
     true
   );
@@ -298,46 +303,51 @@
 
   function saveWord(word, meaning, deck, level, ipa, audio, btn) {
     try {
-      chrome.storage.local.get({ words: [] }, (res) => {
-        const words = res.words;
-        const existing = words.find(
-          (w) => w.word.toLowerCase() === word.toLowerCase() && w.deck === deck
-        );
+      ensureMigrated(() => {
+        chrome.storage.local.get({ words: [] }, (res) => {
+          const words = res.words;
+          const existing = words.find(
+            (w) => w.word.toLowerCase() === word.toLowerCase() && w.deck === deck && !w.deletedAt
+          );
 
-        // đã có trong đúng bộ này -> không lưu lại
-        if (existing) {
-          btn.textContent = "⚠ Từ đã có trong bộ này";
-          btn.classList.add("exists");
-          setTimeout(() => {
-            btn.textContent = "💾 Lưu từ";
-            btn.classList.remove("exists");
-          }, 1400);
-          return;
-        }
+          // đã có trong đúng bộ này -> không lưu lại
+          if (existing) {
+            btn.textContent = "⚠ Từ đã có trong bộ này";
+            btn.classList.add("exists");
+            setTimeout(() => {
+              btn.textContent = "💾 Lưu từ";
+              btn.classList.remove("exists");
+            }, 1400);
+            return;
+          }
 
-        words.unshift({
-          word,
-          meaning: meaning || "",
-          deck: deck || "Mặc định",
-          level: level || "",
-          ipa: ipa || "",
-          audio: audio || "",
-          date: new Date().toISOString(),
-          source: location.hostname,
-          // dữ liệu ôn tập (spaced repetition)
-          box: 1,          // hộp Leitner 1..5
-          due: Date.now(), // thời điểm nên ôn lại
-          correct: 0,
-          wrong: 0,
-        });
+          words.unshift({
+            id: crypto.randomUUID(),
+            word,
+            meaning: meaning || "",
+            deck: deck || "Mặc định",
+            level: level || "",
+            ipa: ipa || "",
+            audio: audio || "",
+            date: new Date().toISOString(),
+            source: location.hostname,
+            // dữ liệu ôn tập (spaced repetition)
+            box: 1,          // hộp Leitner 1..5
+            due: Date.now(), // thời điểm nên ôn lại
+            correct: 0,
+            wrong: 0,
+            updatedAt: Date.now(),
+            deletedAt: null,
+          });
 
-        chrome.storage.local.set({ words, lastDeck: deck }, () => {
-          btn.textContent = "✓ Đã lưu";
-          btn.classList.add("saved");
-          setTimeout(() => {
-            btn.textContent = "💾 Lưu từ";
-            btn.classList.remove("saved");
-          }, 1200);
+          chrome.storage.local.set({ words, lastDeck: deck }, () => {
+            btn.textContent = "✓ Đã lưu";
+            btn.classList.add("saved");
+            setTimeout(() => {
+              btn.textContent = "💾 Lưu từ";
+              btn.classList.remove("saved");
+            }, 1200);
+          });
         });
       });
     } catch (e) {

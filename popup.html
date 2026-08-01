@@ -5,79 +5,105 @@
   <style>
     * { box-sizing: border-box; }
     body {
-      width: 380px; margin: 0;
+      width: 390px; margin: 0;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      color: #1e293b; background: #f8fafc;
+      color: #1f2333; background: #f8fafc;
+      -webkit-font-smoothing: antialiased;
     }
     .head {
       display: flex; align-items: center; justify-content: space-between;
-      padding: 12px 14px; background: #fff; border-bottom: 1px solid #e2e8f0;
+      padding: 14px 16px; background: #fff; border-bottom: 1px solid #e6e8f0;
     }
-    .head h1 { font-size: 15px; margin: 0; }
-    .count { font-size: 12px; color: #64748b; }
+    .head h1 { font-size: 16px; font-weight: 800; color: #1f2333; margin: 0; display: flex; align-items: center; gap: 6px; }
+    .count { font-size: 11px; font-weight: 700; color: #6366f1; background: #edf0ff; padding: 3px 10px; border-radius: 999px; }
 
-    .filters { display: flex; gap: 6px; padding: 10px 12px; background: #fff; border-bottom: 1px solid #e2e8f0; }
+    .filters { display: flex; gap: 6px; padding: 10px 14px; background: #fff; border-bottom: 1px solid #e6e8f0; }
     .filters select {
-      flex: 1; font-size: 12px; padding: 6px; border: 1px solid #e2e8f0;
-      border-radius: 7px; background: #fff;
+      flex: 1; font-size: 12px; font-weight: 600; padding: 7px 8px; border: 1px solid #e6e8f0;
+      border-radius: 9px; background: #fff; color: #1f2333; transition: border-color 0.15s ease;
     }
+    .filters select:focus { outline: none; border-color: #6366f1; }
 
-    .list { max-height: 320px; overflow-y: auto; padding: 6px; }
+    .list { max-height: 290px; overflow-y: auto; padding: 8px 10px; display: flex; flex-direction: column; gap: 8px; }
     .item {
-      background: #fff; border: 1px solid #e2e8f0; border-radius: 10px;
-      padding: 10px 12px; margin: 6px; display: flex; align-items: flex-start;
-      justify-content: space-between; gap: 8px;
+      background: #fff; border: 1px solid #e6e8f0; border-radius: 12px;
+      padding: 12px 14px; display: flex; align-items: flex-start;
+      justify-content: space-between; gap: 8px; transition: all 0.15s ease;
     }
-    .item .w { font-weight: 700; font-size: 14px; color: #0f172a; }
-    .item .ipa { font-weight: 400; font-size: 12px; color: #7c3aed; }
-    .item .m { font-size: 13px; color: #475569; margin-top: 2px; }
-    .item .tags { display: flex; gap: 5px; margin-top: 4px; flex-wrap: wrap; }
-    .tag { font-size: 10px; padding: 2px 7px; border-radius: 20px; background: #eef2ff; color: #4338ca; }
-    .tag.lv { background: #ecfdf5; color: #047857; }
-    .item .src { font-size: 11px; color: #94a3b8; margin-top: 3px; }
-    .item-actions { display: flex; gap: 2px; flex-shrink: 0; }
-    .ibtn { background: transparent; border: none; cursor: pointer; font-size: 14px; padding: 4px; border-radius: 6px; }
-    .ibtn:hover { background: #f1f5f9; }
-    .empty { text-align: center; color: #94a3b8; padding: 30px 12px; font-size: 13px; }
+    .item:hover { border-color: #6366f1; box-shadow: 0 4px 14px rgba(99, 102, 241, 0.08); transform: translateY(-1px); }
+    .item .w { font-weight: 800; font-size: 15px; color: #1f2333; }
+    .item .ipa { font-weight: 500; font-size: 12px; color: #7c5cff; margin-left: 4px; }
+    .item .m { font-size: 13px; color: #4b5563; margin-top: 3px; font-weight: 500; }
+    .item .tags { display: flex; gap: 5px; margin-top: 6px; flex-wrap: wrap; }
+    .tag { font-size: 10px; padding: 2px 8px; border-radius: 999px; background: #edf0ff; color: #6366f1; font-weight: 700; }
+    .tag.lv { background: #e6f9ef; color: #17b26a; }
+    .item .src { font-size: 11px; color: #9aa1b2; margin-top: 4px; }
+    .item-actions { display: flex; gap: 4px; flex-shrink: 0; }
+    .ibtn { background: #edf0ff; border: none; cursor: pointer; font-size: 14px; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; transition: background 0.15s ease; }
+    .ibtn:hover { background: #d0d7ff; }
+    .empty { text-align: center; color: #9aa1b2; padding: 36px 12px; font-size: 13px; font-weight: 500; }
 
-    .bar { display: flex; gap: 8px; padding: 10px 12px; border-top: 1px solid #e2e8f0; background: #fff; }
-    .bar button { flex: 1; font-size: 12px; padding: 8px; border-radius: 8px; border: 1px solid #e2e8f0; background: #fff; cursor: pointer; }
-    .bar button:hover { background: #f1f5f9; }
-    .bar .primary { background: #2563eb; color: #fff; border-color: #2563eb; font-weight: 600; }
-    .bar .primary:hover { background: #1d4ed8; }
-    .danger { color: #dc2626; }
+    .bar { display: flex; gap: 8px; padding: 10px 14px; border-top: 1px solid #e6e8f0; background: #fff; }
+    .bar button { flex: 1; font-size: 12px; font-weight: 700; padding: 9px; border-radius: 999px; border: 1px solid #e6e8f0; background: #fff; color: #4b5563; cursor: pointer; transition: all 0.15s ease; }
+    .bar button:hover { background: #f7f8fc; border-color: #cbd5e1; }
+    .bar .primary { background: linear-gradient(135deg, #6366f1, #4f46e5); color: #fff; border: none; box-shadow: 0 4px 14px rgba(99, 102, 241, 0.3); }
+    .bar .primary:hover { background: linear-gradient(135deg, #4f46e5, #4338ca); transform: translateY(-1px); }
+    .danger { color: #ef4444 !important; border-color: #fdeaea !important; }
+    .danger:hover { background: #fdeaea !important; }
 
-    .filters2 { display: flex; gap: 6px; padding: 0 12px 10px; background: #fff; border-bottom: 1px solid #e2e8f0; }
+    .filters2 { display: flex; gap: 6px; padding: 0 14px 10px; background: #fff; border-bottom: 1px solid #e6e8f0; }
     .filters2 input, .filters2 select {
-      font-size: 12px; padding: 6px; border: 1px solid #e2e8f0; border-radius: 7px; background: #fff;
+      font-size: 12px; font-weight: 600; padding: 7px 8px; border: 1px solid #e6e8f0; border-radius: 9px; background: #fff; color: #1f2333;
     }
     .filters2 input { flex: 2; }
     .filters2 select { flex: 1; }
-    .iconbtn { border: 1px solid #e2e8f0; background: #fff; border-radius: 7px; cursor: pointer; padding: 0 9px; font-size: 13px; }
-    .iconbtn:hover { background: #f1f5f9; }
+    .iconbtn { border: 1px solid #e6e8f0; background: #fff; border-radius: 9px; cursor: pointer; padding: 0 10px; font-size: 13px; transition: background 0.15s ease; }
+    .iconbtn:hover { background: #f7f8fc; }
 
-    .item .meta { font-size: 11px; color: #64748b; margin-top: 4px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
-    .item .meta .ok { color: #16a34a; }
-    .item .meta .no { color: #dc2626; }
-    .item .meta .due-now { color: #d97706; font-weight: 600; }
+    .item .meta { font-size: 11px; color: #6b7280; margin-top: 4px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; font-weight: 600; }
+    .item .meta .ok { color: #17b26a; }
+    .item .meta .no { color: #ef4444; }
+    .item .meta .due-now { color: #f59e0b; font-weight: 700; }
     .mastery { letter-spacing: 1px; color: #f59e0b; font-size: 11px; }
-    .mastery .off { color: #e2e8f0; }
+    .mastery .off { color: #e6e8f0; }
 
-    .deck-panel { background: #fff; border-bottom: 1px solid #e2e8f0; padding: 8px 12px; }
-    .deck-panel h3 { font-size: 12px; margin: 2px 0 8px; color: #334155; }
+    .deck-panel { background: #fff; border-bottom: 1px solid #e6e8f0; padding: 10px 14px; }
+    .deck-panel h3 { font-size: 12px; font-weight: 800; margin: 2px 0 8px; color: #1f2333; }
     .deck-row { display: flex; align-items: center; gap: 6px; padding: 4px 0; }
-    .deck-row .dn { flex: 1; font-size: 12px; color: #0f172a; }
-    .deck-row .dc { font-size: 11px; color: #94a3b8; }
-    .deck-row button { border: 1px solid #e2e8f0; background: #fff; border-radius: 6px; cursor: pointer; font-size: 12px; padding: 3px 7px; }
-    .deck-row button:hover { background: #f1f5f9; }
-    .hidden { display: none; }
+    .deck-row .dn { flex: 1; font-size: 12px; font-weight: 700; color: #1f2333; }
+    .deck-row .dc { font-size: 11px; color: #6b7280; font-weight: 600; }
+    .deck-row button { border: 1px solid #e6e8f0; background: #fff; border-radius: 6px; cursor: pointer; font-size: 12px; padding: 3px 8px; font-weight: 600; }
+    .deck-row button:hover { background: #f7f8fc; }
+    .hidden { display: none !important; }
+
+    .account-bar {
+      display: flex; align-items: center; justify-content: space-between; gap: 8px;
+      padding: 8px 14px; background: #edf0ff; border-bottom: 1px solid #d6dbff;
+    }
+    .account-status { font-size: 12px; font-weight: 600; color: #4338ca; }
+    .account-panel { background: #fff; border-bottom: 1px solid #e6e8f0; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
+    .account-panel input { width: 100%; font-size: 12px; font-weight: 600; padding: 8px 10px; border: 1px solid #e6e8f0; border-radius: 8px; }
+    .account-row { display: flex; gap: 6px; }
+    .account-row button { flex: 1; font-size: 12px; font-weight: 700; padding: 8px; border-radius: 999px; border: 1px solid #e6e8f0; background: #fff; cursor: pointer; }
+    .account-row button:hover { background: #f7f8fc; }
+    .account-row button.primary { background: linear-gradient(135deg, #6366f1, #4f46e5); color: #fff; border: none; }
+    .account-row button.primary:hover { background: linear-gradient(135deg, #4f46e5, #4338ca); }
+    .account-msg { font-size: 11px; color: #6b7280; font-weight: 600; }
+    .account-msg.error { color: #ef4444; }
+    .account-msg.ok { color: #17b26a; }
   </style>
 </head>
 <body>
   <div class="head">
-    <h1>Từ đã lưu</h1>
-    <span class="count" id="count">0</span>
+    <h1>📚 VocabShift</h1>
+    <span class="count" id="count">0 từ</span>
   </div>
+
+  <div class="account-bar">
+    <span class="account-status" id="accountStatus">Chưa đăng nhập</span>
+    <button class="iconbtn" id="accountToggle" title="Tài khoản & đồng bộ">☁️</button>
+  </div>
+  <div id="accountPanel" class="account-panel hidden"></div>
 
   <div class="filters">
     <select id="filterDeck"><option value="">Tất cả bộ</option></select>
@@ -115,6 +141,9 @@
   </div>
   <input type="file" id="importFile" accept=".json,application/json" style="display:none" />
 
+  <script src="migrate.js"></script>
+  <script src="supabaseClient.js"></script>
+  <script src="sync.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>

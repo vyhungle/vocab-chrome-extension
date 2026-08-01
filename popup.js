@@ -11,13 +11,14 @@ const DAY = 24 * 60 * 60 * 1000;
 function loadDeckFilter() {
   chrome.storage.local.get({ decks: ["Mặc định"], words: [] }, (res) => {
     const now = Date.now();
+    const words = res.words.filter((w) => !w.deletedAt);
     const decks = new Set(res.decks);
-    res.words.forEach((w) => w.deck && decks.add(w.deck));
+    words.forEach((w) => w.deck && decks.add(w.deck));
 
     // đếm số từ + số đến hạn cho mỗi bộ
     const count = {};
     const due = {};
-    res.words.forEach((w) => {
+    words.forEach((w) => {
       const d = w.deck || "Mặc định";
       count[d] = (count[d] || 0) + 1;
       if ((w.due ?? 0) <= now) due[d] = (due[d] || 0) + 1;
@@ -25,7 +26,7 @@ function loadDeckFilter() {
 
     const cur = filterDeck.value;
     filterDeck.innerHTML =
-      `<option value="">Tất cả bộ (${res.words.length})</option>` +
+      `<option value="">Tất cả bộ (${words.length})</option>` +
       [...decks]
         .map((d) => {
           const c = count[d] || 0;
@@ -39,7 +40,7 @@ function loadDeckFilter() {
 
 function render() {
   chrome.storage.local.get({ words: [] }, (res) => {
-    let words = res.words;
+    let words = res.words.filter((w) => !w.deletedAt);
     const fd = filterDeck.value;
     const fl = filterLevel.value;
     const q = (searchEl.value || "").trim().toLowerCase();
@@ -147,8 +148,8 @@ function moveWord(target) {
     if (!name || name === target.deck) return;
 
     const words = res.words.map((w) => {
-      if (w.word === target.word && w.deck === target.deck && w.date === target.date) {
-        return { ...w, deck: name };
+      if (w.id === target.id) {
+        return { ...w, deck: name, updatedAt: Date.now() };
       }
       return w;
     });
@@ -160,10 +161,12 @@ function moveWord(target) {
   });
 }
 
+// Xoá mềm: giữ tombstone (deletedAt) để việc xoá đồng bộ được, không hồi sinh khi kéo dữ liệu về
 function removeWord(target) {
   chrome.storage.local.get({ words: [] }, (res) => {
-    const words = res.words.filter(
-      (w) => !(w.word === target.word && w.deck === target.deck && w.date === target.date)
+    const now = Date.now();
+    const words = res.words.map((w) =>
+      w.id === target.id ? { ...w, deletedAt: now, updatedAt: now } : w
     );
     chrome.storage.local.set({ words }, render);
   });
@@ -181,10 +184,11 @@ document.getElementById("manageDecks").addEventListener("click", () => {
 
 function renderDeckPanel() {
   chrome.storage.local.get({ words: [], decks: ["Mặc định"] }, (res) => {
+    const words = res.words.filter((w) => !w.deletedAt);
     const decks = new Set(res.decks);
-    res.words.forEach((w) => w.deck && decks.add(w.deck));
+    words.forEach((w) => w.deck && decks.add(w.deck));
     const count = {};
-    res.words.forEach((w) => {
+    words.forEach((w) => {
       const d = w.deck || "Mặc định";
       count[d] = (count[d] || 0) + 1;
     });
@@ -216,8 +220,9 @@ function renameDeck(oldName) {
   if (!name || name === oldName) return;
 
   chrome.storage.local.get({ words: [], decks: ["Mặc định"] }, (res) => {
+    const now = Date.now();
     const words = res.words.map((w) =>
-      (w.deck || "Mặc định") === oldName ? { ...w, deck: name } : w
+      (w.deck || "Mặc định") === oldName ? { ...w, deck: name, updatedAt: now } : w
     );
     let decks = res.decks.map((d) => (d === oldName ? name : d));
     decks = [...new Set(decks)]; // gộp nếu trùng
@@ -231,7 +236,7 @@ function renameDeck(oldName) {
 
 function deleteDeck(name) {
   chrome.storage.local.get({ words: [], decks: ["Mặc định"] }, (res) => {
-    const n = res.words.filter((w) => (w.deck || "Mặc định") === name).length;
+    const n = res.words.filter((w) => !w.deletedAt && (w.deck || "Mặc định") === name).length;
     if (
       !confirm(
         n
@@ -241,8 +246,9 @@ function deleteDeck(name) {
     )
       return;
 
+    const now = Date.now();
     const words = res.words.map((w) =>
-      (w.deck || "Mặc định") === name ? { ...w, deck: "Mặc định" } : w
+      (w.deck || "Mặc định") === name ? { ...w, deck: "Mặc định", updatedAt: now } : w
     );
     let decks = res.decks.filter((d) => d !== name);
     if (!decks.length) decks = ["Mặc định"];
@@ -291,14 +297,21 @@ document.getElementById("review").addEventListener("click", () => {
 
 document.getElementById("clear").addEventListener("click", () => {
   if (confirm("Xóa toàn bộ từ đã lưu?")) {
-    chrome.storage.local.set({ words: [] }, render);
+    // xoá mềm hàng loạt (giữ tombstone) để lần đồng bộ sau không bị "hồi sinh" dữ liệu
+    chrome.storage.local.get({ words: [] }, (res) => {
+      const now = Date.now();
+      const words = res.words.map((w) =>
+        w.deletedAt ? w : { ...w, deletedAt: now, updatedAt: now }
+      );
+      chrome.storage.local.set({ words }, render);
+    });
   }
 });
 
 // ---------- Xuất CSV (theo bộ lọc) ----------
 document.getElementById("export").addEventListener("click", () => {
   chrome.storage.local.get({ words: [] }, (res) => {
-    let words = res.words;
+    let words = res.words.filter((w) => !w.deletedAt);
     const fd = filterDeck.value;
     const fl = filterLevel.value;
     if (fd) words = words.filter((w) => (w.deck || "Mặc định") === fd);
@@ -323,7 +336,7 @@ document.getElementById("export").addEventListener("click", () => {
 // ---------- Copy Quizlet ----------
 document.getElementById("copyQuizlet").addEventListener("click", (e) => {
   chrome.storage.local.get({ words: [] }, (res) => {
-    let words = res.words;
+    let words = res.words.filter((w) => !w.deletedAt);
     const fd = filterDeck.value;
     const fl = filterLevel.value;
     if (fd) words = words.filter((w) => (w.deck || "Mặc định") === fd);
@@ -382,12 +395,14 @@ importFile.addEventListener("change", () => {
       chrome.storage.local.get({ words: [], decks: ["Mặc định"] }, (res) => {
         const words = res.words.slice();
         const key = (w) => `${(w.word || "").toLowerCase()}||${w.deck || "Mặc định"}`;
-        const seen = new Set(words.map(key));
+        // từ đã xoá mềm không chặn nhập lại (giống check trùng lúc lưu từ)
+        const seen = new Set(words.filter((w) => !w.deletedAt).map(key));
         let added = 0;
         incoming.forEach((w) => {
           if (!w || !w.word || seen.has(key(w))) return;
           seen.add(key(w));
           words.unshift({
+            id: w.id || crypto.randomUUID(),
             word: w.word,
             meaning: w.meaning || "",
             deck: w.deck || "Mặc định",
@@ -400,6 +415,8 @@ importFile.addEventListener("change", () => {
             due: w.due || Date.now(),
             correct: w.correct || 0,
             wrong: w.wrong || 0,
+            updatedAt: w.updatedAt || Date.parse(w.date) || Date.now(),
+            deletedAt: w.deletedAt ?? null,
           });
           added++;
         });
@@ -435,5 +452,114 @@ function esc(s) {
   }[c]));
 }
 
-loadDeckFilter();
-render();
+// ---------- Tài khoản & đồng bộ ----------
+const accountToggle = document.getElementById("accountToggle");
+const accountPanel = document.getElementById("accountPanel");
+const accountStatus = document.getElementById("accountStatus");
+
+accountToggle.addEventListener("click", () => {
+  if (!accountPanel.classList.contains("hidden")) {
+    accountPanel.classList.add("hidden");
+    return;
+  }
+  renderAccountPanel();
+  accountPanel.classList.remove("hidden");
+});
+
+async function refreshAccountStatus() {
+  const session = await getSession();
+  accountStatus.textContent = session?.user?.email
+    ? `Đã đăng nhập: ${session.user.email}`
+    : "Chưa đăng nhập";
+}
+
+async function renderAccountPanel() {
+  const session = await getSession();
+
+  if (session?.user) {
+    accountPanel.innerHTML = `
+      <div class="account-msg">Đã đăng nhập: <b>${esc(session.user.email)}</b></div>
+      <div class="account-row">
+        <button id="syncNowBtn" class="primary">🔄 Đồng bộ ngay</button>
+        <button id="signOutBtn">Đăng xuất</button>
+      </div>
+      <div class="account-msg" id="accountMsg"></div>
+    `;
+
+    document.getElementById("signOutBtn").addEventListener("click", async () => {
+      await signOut();
+      await refreshAccountStatus();
+      renderAccountPanel();
+    });
+
+    document.getElementById("syncNowBtn").addEventListener("click", async () => {
+      const msgEl = document.getElementById("accountMsg");
+      msgEl.className = "account-msg";
+      msgEl.textContent = "Đang đồng bộ…";
+      if (typeof syncNow !== "function") {
+        msgEl.className = "account-msg error";
+        msgEl.textContent = "Chưa cài đặt xong tính năng đồng bộ.";
+        return;
+      }
+      const result = await syncNow();
+      msgEl.className = "account-msg " + (result.ok ? "ok" : "error");
+      msgEl.textContent = result.ok ? "✓ Đã đồng bộ." : `Lỗi: ${result.reason}`;
+      if (result.ok) {
+        loadDeckFilter();
+        render();
+      }
+    });
+  } else {
+    accountPanel.innerHTML = `
+      <input type="email" id="authEmail" placeholder="Email" autocomplete="username" />
+      <input type="password" id="authPassword" placeholder="Mật khẩu" autocomplete="current-password" />
+      <div class="account-row">
+        <button id="signInBtn" class="primary">Đăng nhập</button>
+        <button id="signUpBtn">Đăng ký</button>
+      </div>
+      <div class="account-msg" id="accountMsg"></div>
+    `;
+
+    const emailEl = document.getElementById("authEmail");
+    const passEl = document.getElementById("authPassword");
+    const msgEl = document.getElementById("accountMsg");
+
+    document.getElementById("signInBtn").addEventListener("click", async () => {
+      msgEl.className = "account-msg";
+      msgEl.textContent = "Đang đăng nhập…";
+      try {
+        await signIn(emailEl.value.trim(), passEl.value);
+        await refreshAccountStatus();
+        renderAccountPanel();
+      } catch (e) {
+        msgEl.className = "account-msg error";
+        msgEl.textContent = e.message;
+      }
+    });
+
+    document.getElementById("signUpBtn").addEventListener("click", async () => {
+      msgEl.className = "account-msg";
+      msgEl.textContent = "Đang đăng ký…";
+      try {
+        const session = await signUp(emailEl.value.trim(), passEl.value);
+        if (session) {
+          await refreshAccountStatus();
+          renderAccountPanel();
+        } else {
+          msgEl.className = "account-msg ok";
+          msgEl.textContent = "Đăng ký thành công — kiểm tra email để xác nhận rồi đăng nhập lại.";
+        }
+      } catch (e) {
+        msgEl.className = "account-msg error";
+        msgEl.textContent = e.message;
+      }
+    });
+  }
+}
+
+refreshAccountStatus();
+
+ensureMigrated(() => {
+  loadDeckFilter();
+  render();
+});
