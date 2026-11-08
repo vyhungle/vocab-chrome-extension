@@ -114,8 +114,48 @@
 .vs-row { display: flex; align-items: center; gap: 8px; }
 .vs-label { font-size: 12px; font-weight: 700; color: #6b7280; width: 46px; flex-shrink: 0; }
 .vs-deck {
-  flex: 1; font-size: 13px; font-weight: 600; padding: 6px 8px;
-  border: 1px solid #e6e8f0; border-radius: 8px; background: #fff; color: #1f2333;
+  flex: 1 !important;
+  display: block !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  padding: 6px 30px 6px 12px !important;
+  height: 36px !important;
+  min-height: 36px !important;
+  max-height: 36px !important;
+  line-height: 22px !important;
+  border: 1.5px solid #cbd5e1 !important;
+  border-radius: 8px !important;
+  background-color: #ffffff !important;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%236366f1'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2.5' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E") !important;
+  background-repeat: no-repeat !important;
+  background-position: right 8px center !important;
+  background-size: 16px 16px !important;
+  color: #0f172a !important;
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  outline: none !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05) !important;
+  box-sizing: border-box !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  cursor: pointer !important;
+  margin: 0 !important;
+  text-indent: 0px !important;
+  text-transform: none !important;
+}
+.vs-deck:focus, .vs-deck:active {
+  border-color: #6366f1 !important;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.18) !important;
+  outline: none !important;
+}
+.vs-deck option {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  padding: 8px 12px !important;
+  display: block !important;
 }
 .vs-newdeck {
   border: 1px solid #e6e8f0; background: #edf0ff; border-radius: 8px;

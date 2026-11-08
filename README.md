@@ -15,6 +15,8 @@ Bôi đen từ tiếng Anh trên web → nhấn **Shift** → popup hiện nghĩ
 - Xem danh sách từ, **lọc theo bộ và level**.
 - Phát âm lại, xóa từng từ.
 - Xuất CSV (gồm cả bộ + level), xóa hết.
+- **Copy Quizlet** — copy danh sách từ (đã lọc theo bộ/level) dạng `từ<TAB>nghĩa`, dán thẳng vào Quizlet.
+- **Backup / Import** — xuất toàn bộ dữ liệu (từ + bộ) ra file `.json`, và nạp lại từ file backup đó (gộp, bỏ qua từ trùng).
 
 ### Ôn tập (nút 📚 Ôn tập)
 Mở trang ôn riêng. Chọn bộ + level, rồi chọn:

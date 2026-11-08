@@ -11,8 +11,9 @@ const DAY = 24 * 60 * 60 * 1000;
 function loadDeckFilter() {
   chrome.storage.local.get({ decks: ["Mặc định"], words: [] }, (res) => {
     const now = Date.now();
-    const words = res.words.filter((w) => !w.deletedAt);
-    const decks = new Set(res.decks);
+    const words = (res.words || []).filter((w) => !w.deletedAt);
+    const rawDecks = Array.isArray(res?.decks) && res.decks.length > 0 ? res.decks : ["Mặc định"];
+    const decks = new Set(rawDecks);
     words.forEach((w) => w.deck && decks.add(w.deck));
 
     // đếm số từ + số đến hạn cho mỗi bộ
@@ -261,6 +262,239 @@ function deleteDeck(name) {
   });
 }
 
+// ---------- Thêm từ thủ công (gõ từ thay vì bôi đen trên trang) ----------
+const addWordToggle = document.getElementById("addWordToggle");
+const addWordPanel = document.getElementById("addWordPanel");
+const awWordInput = document.getElementById("awWordInput");
+const awLookupBtn = document.getElementById("awLookupBtn");
+const awError = document.getElementById("awError");
+const awResult = document.getElementById("awResult");
+const awWordDisplay = document.getElementById("awWordDisplay");
+const awIpaDisplay = document.getElementById("awIpaDisplay");
+const awSpeakBtn = document.getElementById("awSpeakBtn");
+const awMeaningEl = document.getElementById("awMeaning");
+const awAltsEl = document.getElementById("awAlts");
+const awDeckSel = document.getElementById("awDeck");
+const awNewDeckBtn = document.getElementById("awNewDeckBtn");
+const awNewDeckRow = document.getElementById("awNewDeckRow");
+const awNewDeckInput = document.getElementById("awNewDeckInput");
+const awNewDeckOk = document.getElementById("awNewDeckOk");
+const awSaveBtn = document.getElementById("awSaveBtn");
+const awLevelBtns = document.querySelectorAll("#awLevels button");
+
+let awCurrentWord = "";
+let awCurrentMeaning = "";
+let awCurrentIpa = "";
+let awCurrentAudio = "";
+let awSelectedLevel = "";
+
+addWordToggle.addEventListener("click", () => {
+  if (!addWordPanel.classList.contains("hidden")) {
+    addWordPanel.classList.add("hidden");
+    return;
+  }
+  resetAddWordForm();
+  addWordPanel.classList.remove("hidden");
+  awWordInput.focus();
+});
+
+function resetAddWordForm() {
+  awWordInput.value = "";
+  awError.classList.add("hidden");
+  awError.textContent = "";
+  awResult.classList.add("hidden");
+  awCurrentWord = "";
+  awCurrentMeaning = "";
+  awCurrentIpa = "";
+  awCurrentAudio = "";
+  awSelectedLevel = "";
+  awMeaningEl.textContent = "";
+  awAltsEl.innerHTML = "";
+  awIpaDisplay.textContent = "";
+  awNewDeckRow.classList.add("hidden");
+  awNewDeckInput.value = "";
+  awLevelBtns.forEach((b) => b.classList.remove("active", "suggested"));
+}
+
+awWordInput.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") {
+    e.preventDefault();
+    doAwLookup();
+  }
+});
+awLookupBtn.addEventListener("click", doAwLookup);
+
+function doAwLookup() {
+  const word = awWordInput.value.trim();
+  awError.classList.add("hidden");
+  if (!word) {
+    awError.textContent = "Nhập một từ tiếng Anh trước đã.";
+    awError.classList.remove("hidden");
+    return;
+  }
+  if (word.split(/\s+/).length > 4 || word.length > 60) {
+    awError.textContent = "Chỉ nên tra 1 từ hoặc cụm ngắn (tối đa 4 từ).";
+    awError.classList.remove("hidden");
+    return;
+  }
+
+  awCurrentWord = word;
+  awCurrentMeaning = "";
+  awCurrentIpa = "";
+  awCurrentAudio = "";
+  awSelectedLevel = "";
+  awWordDisplay.textContent = word;
+  awIpaDisplay.textContent = "";
+  awMeaningEl.textContent = "Đang tra…";
+  awMeaningEl.contentEditable = "false";
+  awAltsEl.innerHTML = "";
+  awLevelBtns.forEach((b) => b.classList.remove("active", "suggested"));
+  awResult.classList.remove("hidden");
+  loadAwDecks();
+
+  chrome.runtime.sendMessage({ type: "MEANING", word }, (resp) => {
+    if (chrome.runtime.lastError || !(resp && resp.ok)) {
+      awMeaningEl.textContent = "Không tra được nghĩa.";
+      return;
+    }
+    awCurrentMeaning = resp.data.meaning || "(không có bản dịch)";
+    awMeaningEl.textContent = awCurrentMeaning;
+    awMeaningEl.contentEditable = "true";
+
+    const alts = resp.data.alternatives || [];
+    if (alts.length) {
+      awAltsEl.innerHTML =
+        "Khác: " +
+        alts.map((a) => `<span class="alt-choice" data-alt="${esc(a)}">${esc(a)}</span>`).join(", ");
+      awAltsEl.querySelectorAll(".alt-choice").forEach((el) => {
+        el.addEventListener("click", () => {
+          awCurrentMeaning = el.dataset.alt;
+          awMeaningEl.textContent = awCurrentMeaning;
+        });
+      });
+    }
+  });
+
+  chrome.runtime.sendMessage({ type: "PRONOUNCE", word }, (resp) => {
+    if (chrome.runtime.lastError || !(resp && resp.ok)) return;
+    awCurrentIpa = resp.data.ipa || "";
+    awCurrentAudio = resp.data.audio || "";
+    awIpaDisplay.textContent = awCurrentIpa;
+
+    const sugLv = resp.data.level || "";
+    if (sugLv && !awSelectedLevel) {
+      const btn = document.querySelector(`#awLevels button[data-lv="${sugLv}"]`);
+      if (btn) {
+        awLevelBtns.forEach((x) => x.classList.remove("active"));
+        btn.classList.add("active", "suggested");
+        awSelectedLevel = sugLv;
+      }
+    }
+  });
+}
+
+awMeaningEl.addEventListener("input", () => {
+  awCurrentMeaning = awMeaningEl.textContent.trim();
+});
+
+awSpeakBtn.addEventListener("click", () => {
+  if (awCurrentWord) playPron(awCurrentWord, awCurrentAudio);
+});
+
+awLevelBtns.forEach((b) => {
+  b.addEventListener("click", () => {
+    awLevelBtns.forEach((x) => x.classList.remove("active", "suggested"));
+    b.classList.add("active");
+    awSelectedLevel = b.dataset.lv;
+  });
+});
+
+function loadAwDecks(selectName) {
+  chrome.storage.local.get({ decks: ["Mặc định"], words: [], lastDeck: "" }, (res) => {
+    const rawDecks = Array.isArray(res?.decks) && res.decks.length > 0 ? res.decks : ["Mặc định"];
+    const deckSet = new Set(rawDecks);
+    deckSet.add("Mặc định");
+    (res.words || []).forEach((w) => !w.deletedAt && w.deck && deckSet.add(w.deck));
+    const decks = Array.from(deckSet);
+    awDeckSel.innerHTML = decks.map((d) => `<option value="${esc(d)}">${esc(d)}</option>`).join("");
+    let target = selectName || res.lastDeck || "Mặc định";
+    if (!decks.includes(target)) target = decks[0];
+    awDeckSel.value = target;
+  });
+}
+
+awDeckSel.addEventListener("change", () => {
+  chrome.storage.local.set({ lastDeck: awDeckSel.value });
+});
+
+awNewDeckBtn.addEventListener("click", () => {
+  awNewDeckRow.classList.toggle("hidden");
+  if (!awNewDeckRow.classList.contains("hidden")) awNewDeckInput.focus();
+});
+
+awNewDeckOk.addEventListener("click", () => {
+  const name = awNewDeckInput.value.trim();
+  if (!name) return;
+  chrome.storage.local.get({ decks: ["Mặc định"] }, (res) => {
+    const rawDecks = Array.isArray(res?.decks) && res.decks.length > 0 ? res.decks : ["Mặc định"];
+    const decks = Array.from(new Set(rawDecks));
+    if (!decks.includes(name)) decks.push(name);
+    chrome.storage.local.set({ decks, lastDeck: name }, () => {
+      loadAwDecks(name);
+      awNewDeckRow.classList.add("hidden");
+      awNewDeckInput.value = "";
+      loadDeckFilter();
+    });
+  });
+});
+
+awSaveBtn.addEventListener("click", () => {
+  if (!awCurrentWord) return;
+  const deck = awDeckSel.value || "Mặc định";
+  chrome.storage.local.get({ words: [] }, (res) => {
+    const words = res.words;
+    const existing = words.find(
+      (w) => w.word.toLowerCase() === awCurrentWord.toLowerCase() && w.deck === deck && !w.deletedAt
+    );
+    if (existing) {
+      flashAwSave("⚠ Từ đã có trong bộ này", "exists");
+      return;
+    }
+    words.unshift({
+      id: crypto.randomUUID(),
+      word: awCurrentWord,
+      meaning: awCurrentMeaning || "",
+      deck,
+      level: awSelectedLevel || "",
+      ipa: awCurrentIpa || "",
+      audio: awCurrentAudio || "",
+      date: new Date().toISOString(),
+      source: "Nhập thủ công",
+      box: 1,
+      due: Date.now(),
+      correct: 0,
+      wrong: 0,
+      updatedAt: Date.now(),
+      deletedAt: null,
+    });
+    chrome.storage.local.set({ words, lastDeck: deck }, () => {
+      flashAwSave("✓ Đã lưu", "saved");
+      loadDeckFilter();
+      render();
+    });
+  });
+});
+
+function flashAwSave(msg, cls) {
+  const old = awSaveBtn.textContent;
+  awSaveBtn.textContent = msg;
+  awSaveBtn.classList.add(cls);
+  setTimeout(() => {
+    awSaveBtn.textContent = old;
+    awSaveBtn.classList.remove(cls);
+  }, 1400);
+}
+
 // ---------- Âm thanh ----------
 function speak(text) {
   window.speechSynthesis.cancel();
@@ -273,8 +507,28 @@ function speak(text) {
 function playPron(text, audioUrl) {
   if (audioUrl) {
     try {
+      let settled = false;
       const a = new Audio(audioUrl);
-      a.play().catch(() => speak(text));
+      const fallback = () => {
+        if (settled) return;
+        settled = true;
+        a.pause();
+        speak(text);
+      };
+      // nếu audio tải quá chậm (mạng chậm/CDN nghẽn) thì chuyển sang giọng đọc máy ngay
+      const timer = setTimeout(fallback, 1500);
+      a.addEventListener("playing", () => {
+        settled = true;
+        clearTimeout(timer);
+      });
+      a.addEventListener("error", () => {
+        clearTimeout(timer);
+        fallback();
+      });
+      a.play().catch(() => {
+        clearTimeout(timer);
+        fallback();
+      });
       return;
     } catch (e) {}
   }

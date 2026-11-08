@@ -20,6 +20,12 @@ let sessionDoneIds = new Set(); // các từ đã ôn trong chuỗi vòng hiện
 let session = null; // phiên dang dở đọc từ storage (để hiện banner resume)
 let sessionStartedAt = 0;
 
+// ---------- Chế độ "Học nhóm" (trắc nghiệm + gõ từ theo nhóm 5 từ) ----------
+const GROUP_SIZE = 5;
+const MAX_CARRY_ATTEMPTS = 2; // sai thêm tối đa 2 lần (tổng 3 lần gặp trắc nghiệm) rồi ép hoàn thành để tránh lặp vô hạn
+let group = null;
+// group = { order, groupStart, phase, carry: [{id, attempts}], groupWrong, cleared, forceCleared, wrongEver }
+
 // ---------- Elements ----------
 const $ = (id) => document.getElementById(id);
 
@@ -103,13 +109,22 @@ function findWordById(id) {
 // ---------- Resume buổi ôn dang dở ----------
 function renderResumeBanner() {
   const banner = $("resumeBanner");
-  if (!session || !Array.isArray(session.ids) || !session.ids.length) {
+  const hasGroup = session && session.selMode === "group" && session.group;
+  if (!session || (!hasGroup && (!Array.isArray(session.ids) || !session.ids.length))) {
     banner.classList.add("hidden");
     return;
   }
   const tooOld = !session.startedAt || Date.now() - session.startedAt > DAY;
-  const remainingIds = session.ids.slice(session.current || 0);
-  const validCount = remainingIds.filter((id) => findWordById(id)).length;
+
+  let validCount;
+  if (hasGroup) {
+    const order = session.group.order || [];
+    const cleared = new Set(session.group.cleared || []);
+    validCount = order.filter((id) => !cleared.has(id) && findWordById(id)).length;
+  } else {
+    const remainingIds = session.ids.slice(session.current || 0);
+    validCount = remainingIds.filter((id) => findWordById(id)).length;
+  }
 
   if (tooOld || validCount < 1) {
     clearSession();
@@ -138,6 +153,18 @@ function saveSessionState() {
     batchSize,
     startedAt: sessionStartedAt,
   };
+  if (selMode === "group" && group) {
+    session.group = {
+      order: group.order,
+      groupStart: group.groupStart,
+      phase: group.phase,
+      carry: group.carry,
+      groupWrong: group.groupWrong,
+      cleared: group.cleared,
+      forceCleared: group.forceCleared,
+      wrongEver: group.wrongEver,
+    };
+  }
   return session;
 }
 
@@ -178,14 +205,6 @@ $("navBrowse").addEventListener("click", () => {
 
 function resumeSession() {
   if (!session) return;
-  const remainingIds = session.ids.slice(session.current || 0);
-  const restoredQueue = remainingIds.map(findWordById).filter(Boolean);
-
-  if (!restoredQueue.length) {
-    clearSession();
-    $("resumeBanner").classList.add("hidden");
-    return;
-  }
 
   selMode = session.selMode || "flashcard";
   selSchedule = session.selSchedule || "srs";
@@ -198,6 +217,20 @@ function resumeSession() {
   syncButtonGroup("mode", selMode);
   syncButtonGroup("schedule", selSchedule);
   renderDeckGrid();
+
+  if (selMode === "group" && session.group) {
+    resumeGroupSession();
+    return;
+  }
+
+  const remainingIds = session.ids.slice(session.current || 0);
+  const restoredQueue = remainingIds.map(findWordById).filter(Boolean);
+
+  if (!restoredQueue.length) {
+    clearSession();
+    $("resumeBanner").classList.add("hidden");
+    return;
+  }
 
   sessionDoneIds = new Set(session.ids.slice(0, session.current || 0));
 
@@ -212,6 +245,43 @@ function resumeSession() {
   $("total").textContent = queue.length;
   lockSidebar();
   showCard();
+}
+
+function resumeGroupSession() {
+  const g = session.group;
+  group = {
+    order: g.order || [],
+    groupStart: g.groupStart || 0,
+    phase: g.phase || "quiz",
+    carry: g.carry || [],
+    groupWrong: g.groupWrong || [],
+    cleared: g.cleared || [],
+    forceCleared: g.forceCleared || [],
+    wrongEver: g.wrongEver || [],
+  };
+  // lọc bỏ từ đã xoá mềm khỏi carry để không kẹt vòng lặp với từ không còn tồn tại
+  group.carry = group.carry.filter((c) => findWordById(c.id));
+
+  stats = session.stats || { correct: 0, wrong: 0 };
+  sessionDoneIds = new Set(group.cleared);
+
+  queue = (session.ids || []).map(findWordById).filter(Boolean);
+  current = Math.min(session.current || 0, queue.length);
+
+  $("resumeBanner").classList.add("hidden");
+  $("setup").classList.add("hidden");
+  $("done").classList.add("hidden");
+  $("session").classList.remove("hidden");
+  $("total").textContent = queue.length;
+  lockSidebar();
+
+  if (group.phase === "summary") {
+    showGroupSummary();
+  } else if (!queue.length) {
+    buildQuizPhase();
+  } else {
+    showCard();
+  }
 }
 
 $("resumeBtn").addEventListener("click", resumeSession);
@@ -421,14 +491,197 @@ function beginQueue(pool) {
   return true;
 }
 
+// ---------- Chế độ "Học nhóm" ----------
+// Trạng thái đang hiển thị: mode cũ = selMode, mode nhóm = phase hiện tại (quiz/type/summary)
+function effectiveStage() {
+  if (selMode !== "group") return selMode;
+  if (!group) return "quiz";
+  return group.phase;
+}
+
+// 5 id từ MỚI của nhóm hiện tại (nhóm cuối có thể ít hơn 5 nếu pool không chia hết)
+function currentGroupIds() {
+  if (!group) return [];
+  return group.order.slice(group.groupStart, group.groupStart + GROUP_SIZE);
+}
+
+function carryWords() {
+  if (!group) return [];
+  return group.carry.map((c) => findWordById(c.id)).filter(Boolean);
+}
+
+function startGroupRound(pool) {
+  const ids = shuffle(pool).map(idKey);
+  if (!ids.length) {
+    alert("Không có từ nào để ôn với lựa chọn hiện tại.");
+    return false;
+  }
+  closeConfigModal();
+  group = {
+    order: ids,
+    groupStart: 0,
+    phase: "quiz",
+    carry: [],
+    groupWrong: [],
+    cleared: [],
+    forceCleared: [],
+    wrongEver: [],
+  };
+  stats = { correct: 0, wrong: 0 };
+  sessionStartedAt = Date.now();
+  $("setup").classList.add("hidden");
+  $("done").classList.add("hidden");
+  $("session").classList.remove("hidden");
+  lockSidebar();
+  buildQuizPhase();
+  return true;
+}
+
+// Bước A: trắc nghiệm cho 5 từ mới của nhóm + các từ đang carry (bị sai ở nhóm trước)
+function buildQuizPhase() {
+  const words = [...currentGroupIds().map(findWordById).filter(Boolean), ...carryWords()];
+  queue = shuffle(words);
+  current = 0;
+  group.phase = "quiz";
+  group.groupWrong = [];
+  locked = false;
+  $("total").textContent = queue.length;
+  chrome.storage.local.set({ session: saveSessionState() });
+  showCard();
+}
+
+// Bước B: gõ lại từ, chỉ áp dụng cho 5 từ MỚI của nhóm (không gồm carry)
+function buildTypePhase() {
+  const words = currentGroupIds().map(findWordById).filter(Boolean);
+  queue = shuffle(words);
+  current = 0;
+  group.phase = "type";
+  locked = false;
+  $("total").textContent = queue.length;
+  chrome.storage.local.set({ session: saveSessionState() });
+  showCard();
+}
+
+// Gọi khi 1 phase (quiz hoặc type) của nhóm hiện tại đã hết câu
+function handleGroupPhaseEnd() {
+  if (group.phase === "quiz") {
+    if (currentGroupIds().length > 0) buildTypePhase();
+    else showGroupSummary(); // vòng chỉ có carry (không còn từ mới) -> bỏ qua bước gõ, vào thẳng tổng kết
+  } else if (group.phase === "type") {
+    showGroupSummary();
+  }
+}
+
+function showGroupSummary() {
+  group.phase = "summary";
+  ["flashcard", "quiz", "type"].forEach((s) => $(s).classList.add("hidden"));
+  const stage = $("groupSummary");
+  stage.classList.remove("hidden");
+
+  const newWords = currentGroupIds().map(findWordById).filter(Boolean);
+  const carryList = carryWords();
+
+  const renderRow = (w) => {
+    const failed = group.groupWrong.includes(w.id);
+    return `
+      <div class="gs-item ${failed ? "gs-fail" : "gs-ok"}" data-id="${esc(w.id)}">
+        <div class="gs-word">${esc(w.word)}${w.ipa ? ` <span class="ipa">${esc(w.ipa)}</span>` : ""}</div>
+        <div class="gs-meaning">${esc(w.meaning || "(chưa có nghĩa)")}</div>
+        <button class="gs-speak" title="Phát âm">🔊</button>
+        <span class="gs-mark">${failed ? "✗" : "✓"}</span>
+      </div>`;
+  };
+
+  let html = newWords.map(renderRow).join("");
+  if (carryList.length) {
+    html += `<div class="gs-carry-label">+ ${carryList.length} từ ôn lại từ nhóm trước:</div>` + carryList.map(renderRow).join("");
+  }
+  $("gsList").innerHTML = html;
+
+  $("gsList").querySelectorAll(".gs-item").forEach((el) => {
+    const w = findWordById(el.dataset.id);
+    if (w) el.querySelector(".gs-speak").addEventListener("click", () => playPron(w.word, w.audio));
+  });
+
+  updatePhaseInfo();
+  const total = group.order.length;
+  $("progressBar").style.width = (total ? (group.cleared.length / total) * 100 : 0) + "%";
+  chrome.storage.local.set({ session: saveSessionState() });
+
+  stage.classList.remove("pop");
+  void stage.offsetWidth;
+  stage.classList.add("pop");
+}
+
+// Chuyển sang nhóm kế tiếp: từ sai (trắc nghiệm hoặc gõ) -> carry; sai quá MAX_CARRY_ATTEMPTS lần -> ép hoàn thành
+function advanceGroup() {
+  const roundIds = [...currentGroupIds(), ...group.carry.map((c) => c.id)];
+
+  const nextCarry = [];
+  roundIds.forEach((id) => {
+    if (group.groupWrong.includes(id)) {
+      const prev = group.carry.find((c) => c.id === id);
+      const attempts = (prev ? prev.attempts : 0) + 1;
+      if (attempts > MAX_CARRY_ATTEMPTS) {
+        if (!group.cleared.includes(id)) group.cleared.push(id);
+        if (!group.forceCleared.includes(id)) group.forceCleared.push(id);
+      } else {
+        nextCarry.push({ id, attempts });
+      }
+    } else if (!group.cleared.includes(id)) {
+      group.cleared.push(id);
+    }
+  });
+  group.carry = nextCarry;
+  group.groupStart += GROUP_SIZE;
+  sessionDoneIds = new Set(group.cleared);
+
+  const hasMoreNew = group.groupStart < group.order.length;
+  if (hasMoreNew || group.carry.length) {
+    buildQuizPhase();
+  } else {
+    finishGroupRound();
+  }
+}
+
+function finishGroupRound() {
+  sessionDoneIds = new Set(group.cleared);
+  finish();
+  const noteEl = $("doneGroupNote");
+  if (noteEl && group.forceCleared.length) {
+    noteEl.textContent = `⚠️ ${group.forceCleared.length} từ vẫn chưa thuộc sau nhiều lần ôn lại — sẽ xuất hiện sớm ở buổi ôn tiếp theo.`;
+    noteEl.classList.remove("hidden");
+  }
+}
+
+function updatePhaseInfo() {
+  const el = $("phaseInfo");
+  if (!el) return;
+  if (selMode !== "group" || !group) {
+    el.classList.add("hidden");
+    return;
+  }
+  const groupNum = Math.floor(group.groupStart / GROUP_SIZE) + 1;
+  const totalGroups = Math.max(1, Math.ceil(group.order.length / GROUP_SIZE));
+  const phaseLabel = group.phase === "quiz" ? "Trắc nghiệm" : group.phase === "type" ? "Gõ từ" : "Tổng kết";
+  const detail = group.phase === "summary" ? "" : ` — câu ${Math.min(current + 1, queue.length)}/${queue.length}`;
+  el.textContent = `Nhóm ${groupNum}/${totalGroups} · ${phaseLabel}${detail}`;
+  el.classList.remove("hidden");
+}
+
+$("gsContinue").addEventListener("click", advanceGroup);
+
 $("start").addEventListener("click", () => {
   sessionDoneIds = new Set();
-  beginQueue(getPool());
+  if (selMode === "group") startGroupRound(getPool());
+  else beginQueue(getPool());
 });
 
 $("nextRound").addEventListener("click", () => {
   const pool = getPool().filter((w) => !sessionDoneIds.has(idKey(w)));
-  beginQueue(pool); // giữ nguyên sessionDoneIds để không lặp từ đã ôn trong chuỗi vòng này
+  // giữ nguyên sessionDoneIds để không lặp từ đã ôn trong chuỗi vòng này
+  if (selMode === "group") startGroupRound(pool);
+  else beginQueue(pool);
 });
 
 $("again").addEventListener("click", () => {
@@ -542,10 +795,14 @@ document.addEventListener("keydown", (e) => {
   if (tag === "input" || tag === "textarea") return; // để ô "Gõ lại từ" tự xử lý phím riêng
   if ($("session").classList.contains("hidden")) return; // chỉ áp dụng khi đang trong buổi ôn
 
-  if (selMode === "flashcard" && !$("flashcard").classList.contains("hidden")) {
+  const stage = effectiveStage();
+  if (stage === "flashcard" && !$("flashcard").classList.contains("hidden")) {
     handleFlashcardKey(e);
-  } else if (selMode === "quiz" && !$("quiz").classList.contains("hidden")) {
+  } else if (stage === "quiz" && !$("quiz").classList.contains("hidden")) {
     handleQuizKey(e);
+  } else if (stage === "summary" && (e.key === "Enter" || e.key === " ")) {
+    e.preventDefault();
+    $("gsContinue").click();
   }
 });
 
@@ -577,19 +834,29 @@ function handleQuizKey(e) {
 
 // ---------- Hiển thị 1 thẻ ----------
 function showCard() {
-  if (current >= queue.length) return finish();
+  if (current >= queue.length) {
+    if (selMode === "group") return handleGroupPhaseEnd();
+    return finish();
+  }
 
   const w = queue[current];
   $("idx").textContent = current + 1;
-  $("progressBar").style.width = ((current / queue.length) * 100) + "%";
+  if (selMode === "group") {
+    const total = group.order.length;
+    $("progressBar").style.width = (total ? (group.cleared.length / total) * 100 : 0) + "%";
+  } else {
+    $("progressBar").style.width = ((current / queue.length) * 100) + "%";
+  }
   locked = false;
 
-  ["flashcard", "quiz", "type"].forEach((s) => $(s).classList.add("hidden"));
+  ["flashcard", "quiz", "type", "groupSummary"].forEach((s) => $(s).classList.add("hidden"));
 
-  const stageId = selMode === "flashcard" ? "flashcard" : selMode === "quiz" ? "quiz" : "type";
-  if (selMode === "flashcard") showFlashcard(w);
-  else if (selMode === "quiz") showQuiz(w);
+  const stageId = effectiveStage(); // "flashcard" | "quiz" | "type"
+  if (stageId === "flashcard") showFlashcard(w);
+  else if (stageId === "quiz") showQuiz(w);
   else showType(w);
+
+  updatePhaseInfo();
 
   // buộc animation chạy lại ở mỗi thẻ mới (kể cả khi cùng 1 stage)
   const stage = $(stageId);
@@ -620,7 +887,9 @@ function showFlashcard(w) {
     b.onclick = () => {
       if (locked) return;
       locked = true;
-      grade(w, b.dataset.ok === "1");
+      const ok = b.dataset.ok === "1";
+      if (ok) playSuccessSound();
+      grade(w, ok);
     };
   });
 }
@@ -654,6 +923,7 @@ function showQuiz(w) {
         if (b.dataset.opt === (w.meaning || "(chưa có nghĩa)")) b.classList.add("correct");
         else if (b === btn) b.classList.add("incorrect");
       });
+      if (correct) playSuccessSound();
       setTimeout(() => grade(w, correct), 750);
     };
     box.appendChild(btn);
@@ -670,37 +940,76 @@ function showType(w) {
   input.disabled = false;
   input.focus();
   $("tpResult").classList.add("hidden");
+  const actions = $("tpActions");
+  actions.classList.remove("hidden");
+  const continueBtn = $("tpContinue");
+  continueBtn.classList.add("hidden");
 
-  const check = () => {
+  const word = w.word.trim();
+  const maxHint = Math.max(1, word.length - 1); // luôn giữ lại ít nhất 1 ký tự chưa lộ
+  let hintCount = 0;
+  const hintEl = $("tpHintText");
+  hintEl.classList.add("hidden");
+  hintEl.textContent = "";
+  const hintBtn = $("tpHint");
+  hintBtn.disabled = false;
+
+  const renderHint = () => {
+    hintEl.textContent = "Gợi ý: " + word.split("").map((c, i) => (c === " " ? " " : i < hintCount ? c : "_")).join(" ");
+    hintEl.classList.remove("hidden");
+  };
+
+  hintBtn.onclick = () => {
     if (locked) return;
-    const ans = input.value.trim().toLowerCase();
-    if (!ans) return;
+    hintCount = Math.min(hintCount + 1, maxHint);
+    renderHint();
+    if (hintCount >= maxHint) hintBtn.disabled = true;
+  };
+
+  let advanced = false;
+  const finish = (correct) => {
+    if (locked) return;
     locked = true;
-    const correct = ans === w.word.trim().toLowerCase();
     input.disabled = true;
+    actions.classList.add("hidden");
     const r = $("tpResult");
     r.classList.remove("hidden", "ok", "no");
     if (correct) {
       r.classList.add("ok");
       r.textContent = "✓ Chính xác!";
+      playSuccessSound();
+      setTimeout(() => grade(w, true), 900);
     } else {
+      // sai thì dừng lại ở màn hình này, chỉ qua câu mới khi người dùng bấm "Tiếp tục"
       r.classList.add("no");
       r.textContent = `✗ Đáp án: ${w.word}${w.ipa ? " " + w.ipa : ""}`;
+      continueBtn.classList.remove("hidden");
     }
-    playPron(w.word, w.audio);
-    setTimeout(() => grade(w, correct), 1100);
+  };
+
+  continueBtn.onclick = () => {
+    if (advanced) return;
+    advanced = true;
+    grade(w, false);
+  };
+
+  const check = () => {
+    const ans = input.value.trim().toLowerCase();
+    if (!ans) return;
+    finish(ans === word.toLowerCase());
   };
 
   $("tpCheck").onclick = check;
+  $("tpSkip").onclick = () => finish(false);
   input.onkeydown = (e) => { if (e.key === "Enter") check(); };
 }
 
 // ---------- Chấm điểm + cập nhật spaced repetition ----------
-function grade(word, ok) {
+// cập nhật hộp Leitner trong allWordsFull (nguồn đầy đủ, giữ nguyên tombstone của từ khác đã xoá mềm) + thống kê
+function applyLeitner(word, ok) {
   if (ok) stats.correct++;
   else stats.wrong++;
 
-  // cập nhật hộp Leitner trong allWordsFull (nguồn đầy đủ, giữ nguyên tombstone của từ khác đã xoá mềm)
   const w = allWordsFull.find((x) => x.id === word.id);
   if (w) {
     if (ok) {
@@ -713,12 +1022,45 @@ function grade(word, ok) {
     w.due = Date.now() + BOX_INTERVAL[w.box];
     w.updatedAt = Date.now();
   }
+}
 
+function grade(word, ok) {
+  // âm thanh khi đúng đã phát ngay lúc bấm (trong showFlashcard/showQuiz/showType) để không bị chặn autoplay khi grade() chạy trễ qua setTimeout
+  if (selMode === "group") return gradeGroup(word, ok);
+
+  applyLeitner(word, ok);
   sessionDoneIds.add(idKey(word));
   current++;
 
   // gộp cùng 1 lần ghi: mất mạng/đóng tab giữa chừng cũng không lệch dữ liệu
   chrome.storage.local.set({ words: allWordsFull, session: saveSessionState() }, () => {
+    showCard();
+  });
+}
+
+// Học nhóm: Leitner chỉ ghi 1 lần/từ/buổi — sai lần đầu ghi ngay (box về 1);
+// đúng cả trắc nghiệm lẫn gõ từ thì ghi đúng lúc hoàn thành bước gõ. Các lần carry-quiz lại không đụng Leitner nữa.
+function gradeGroup(word, ok) {
+  const id = idKey(word);
+  let leitnerApplied = false;
+
+  if (!ok) {
+    if (!group.groupWrong.includes(id)) group.groupWrong.push(id);
+    if (!group.wrongEver.includes(id)) {
+      applyLeitner(word, false);
+      group.wrongEver.push(id);
+      leitnerApplied = true;
+    }
+  } else if (group.phase === "type" && !group.groupWrong.includes(id) && !group.wrongEver.includes(id)) {
+    applyLeitner(word, true);
+    leitnerApplied = true;
+  }
+
+  current++;
+
+  const payload = { session: saveSessionState() };
+  if (leitnerApplied) payload.words = allWordsFull;
+  chrome.storage.local.set(payload, () => {
     showCard();
   });
 }
@@ -733,6 +1075,9 @@ function finish() {
   $("rWrong").textContent = stats.wrong;
   $("rTotal").textContent = total;
   $("rAcc").textContent = (total ? Math.round((stats.correct / total) * 100) : 0) + "%";
+
+  const noteEl = $("doneGroupNote");
+  if (noteEl) noteEl.classList.add("hidden");
 
   updateStreak();
   renderStreakInto("doneStreak");
@@ -749,6 +1094,29 @@ function finish() {
 }
 
 // ---------- Tiện ích ----------
+let successAudioCtx = null;
+// âm "ting" ngắn khi trả lời đúng, tạo bằng Web Audio thay vì file âm thanh riêng
+function playSuccessSound() {
+  try {
+    successAudioCtx = successAudioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    if (successAudioCtx.state === "suspended") successAudioCtx.resume();
+    const now = successAudioCtx.currentTime;
+    [523.25, 783.99].forEach((freq, i) => {
+      const osc = successAudioCtx.createOscillator();
+      const gain = successAudioCtx.createGain();
+      osc.type = "sine";
+      osc.frequency.value = freq;
+      const start = now + i * 0.09;
+      gain.gain.setValueAtTime(0, start);
+      gain.gain.linearRampToValueAtTime(0.35, start + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.001, start + 0.24);
+      osc.connect(gain).connect(successAudioCtx.destination);
+      osc.start(start);
+      osc.stop(start + 0.22);
+    });
+  } catch (e) {}
+}
+
 function speak(text) {
   try {
     window.speechSynthesis.cancel();
@@ -762,8 +1130,28 @@ function speak(text) {
 function playPron(text, audioUrl) {
   if (audioUrl) {
     try {
+      let settled = false;
       const a = new Audio(audioUrl);
-      a.play().catch(() => speak(text));
+      const fallback = () => {
+        if (settled) return;
+        settled = true;
+        a.pause();
+        speak(text);
+      };
+      // nếu audio tải quá chậm (mạng chậm/CDN nghẽn) thì chuyển sang giọng đọc máy ngay
+      const timer = setTimeout(fallback, 1500);
+      a.addEventListener("playing", () => {
+        settled = true;
+        clearTimeout(timer);
+      });
+      a.addEventListener("error", () => {
+        clearTimeout(timer);
+        fallback();
+      });
+      a.play().catch(() => {
+        clearTimeout(timer);
+        fallback();
+      });
       return;
     } catch (e) {}
   }

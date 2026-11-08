@@ -91,6 +91,33 @@
     .account-msg { font-size: 11px; color: #6b7280; font-weight: 600; }
     .account-msg.error { color: #ef4444; }
     .account-msg.ok { color: #17b26a; }
+
+    .addword-panel { background: #fff; border-bottom: 1px solid #e6e8f0; padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; }
+    .addword-input-row { display: flex; gap: 6px; }
+    .addword-input-row input { flex: 1; font-size: 13px; font-weight: 600; padding: 8px 10px; border: 1px solid #e6e8f0; border-radius: 9px; }
+    .addword-input-row input:focus { outline: none; border-color: #6366f1; }
+    .addword-error { font-size: 11px; color: #ef4444; font-weight: 600; }
+    .addword-result { display: flex; flex-direction: column; gap: 8px; padding-top: 4px; border-top: 1px dashed #e6e8f0; }
+    .addword-head { display: flex; align-items: center; gap: 6px; }
+    .addword-head .w { font-weight: 800; font-size: 15px; color: #1f2333; }
+    .addword-head .ipa { font-weight: 500; font-size: 12px; color: #7c5cff; flex: 1; }
+    .addword-meaning { font-size: 13px; font-weight: 600; color: #1f2333; padding: 6px 8px; border: 1px dashed #e6e8f0; border-radius: 8px; min-height: 18px; }
+    .addword-meaning:focus { outline: none; border-color: #6366f1; }
+    .addword-hint { font-size: 10px; color: #9aa1b2; }
+    .addword-alts { font-size: 11px; color: #6b7280; }
+    .addword-alts .alt-choice { color: #6366f1; cursor: pointer; font-weight: 700; }
+    .addword-alts .alt-choice:hover { text-decoration: underline; }
+    .addword-row { display: flex; align-items: center; gap: 6px; }
+    .addword-row select { flex: 1; font-size: 12px; font-weight: 600; padding: 6px 8px; border: 1px solid #e6e8f0; border-radius: 8px; }
+    .addword-row input { flex: 1; font-size: 12px; font-weight: 600; padding: 6px 8px; border: 1px solid #e6e8f0; border-radius: 8px; }
+    .addword-row .lbl { font-size: 11px; font-weight: 700; color: #6b7280; width: 44px; }
+    .addword-levels { display: flex; gap: 4px; flex: 1; }
+    .addword-levels button { flex: 1; font-size: 11px; font-weight: 700; padding: 5px 0; border-radius: 7px; border: 1px solid #e6e8f0; background: #fff; color: #4b5563; cursor: pointer; }
+    .addword-levels button.active { background: #6366f1; border-color: #6366f1; color: #fff; }
+    .addword-levels button.suggested { background: #edf0ff; border-color: #6366f1; color: #6366f1; }
+    .addword-save { font-size: 12px; font-weight: 700; padding: 9px; border-radius: 999px; border: none; cursor: pointer; background: linear-gradient(135deg, #6366f1, #4f46e5); color: #fff; box-shadow: 0 4px 14px rgba(99, 102, 241, 0.3); }
+    .addword-save.saved { background: #17b26a; }
+    .addword-save.exists { background: #f59e0b; }
   </style>
 </head>
 <body>
@@ -112,7 +139,43 @@
       <option>A1</option><option>A2</option><option>B1</option>
       <option>B2</option><option>C1</option><option>C2</option>
     </select>
+    <button id="addWordToggle" class="iconbtn" title="Thêm từ mới">➕</button>
     <button id="manageDecks" class="iconbtn" title="Quản lý bộ từ">⚙</button>
+  </div>
+
+  <div id="addWordPanel" class="addword-panel hidden">
+    <div class="addword-input-row">
+      <input id="awWordInput" type="text" placeholder="Nhập từ tiếng Anh…" autocomplete="off" />
+      <button id="awLookupBtn" class="iconbtn">🔍 Tra từ</button>
+    </div>
+    <div id="awError" class="addword-error hidden"></div>
+    <div id="awResult" class="addword-result hidden">
+      <div class="addword-head">
+        <span class="w" id="awWordDisplay"></span>
+        <span class="ipa" id="awIpaDisplay"></span>
+        <button class="ibtn" id="awSpeakBtn" title="Phát âm">🔊</button>
+      </div>
+      <div class="addword-meaning" id="awMeaning" contenteditable="true"></div>
+      <div class="addword-hint">✏️ Bấm vào nghĩa để sửa nếu dịch chưa đúng</div>
+      <div class="addword-alts" id="awAlts"></div>
+      <div class="addword-row">
+        <span class="lbl">Bộ từ</span>
+        <select id="awDeck"></select>
+        <button id="awNewDeckBtn" class="iconbtn" title="Tạo bộ mới">＋</button>
+      </div>
+      <div class="addword-row hidden" id="awNewDeckRow">
+        <input id="awNewDeckInput" type="text" placeholder="Tên bộ mới…" />
+        <button id="awNewDeckOk" class="iconbtn">OK</button>
+      </div>
+      <div class="addword-row">
+        <span class="lbl">Level</span>
+        <div class="addword-levels" id="awLevels">
+          <button data-lv="A1">A1</button><button data-lv="A2">A2</button><button data-lv="B1">B1</button>
+          <button data-lv="B2">B2</button><button data-lv="C1">C1</button><button data-lv="C2">C2</button>
+        </div>
+      </div>
+      <button id="awSaveBtn" class="addword-save">💾 Lưu từ</button>
+    </div>
   </div>
 
   <div class="filters2">

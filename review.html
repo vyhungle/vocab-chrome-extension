@@ -90,6 +90,7 @@
     <div id="session" class="card narrow hidden">
       <div class="progress"><div id="progressBar"></div></div>
       <div class="counter"><span id="idx">0</span>/<span id="total">0</span></div>
+      <div id="phaseInfo" class="phase-info hidden"></div>
 
       <!-- Flashcard -->
       <div id="flashcard" class="stage hidden">
@@ -124,8 +125,22 @@
         <div class="meaning big" id="tpMeaning"></div>
         <p class="q-hint">Gõ từ tiếng Anh:</p>
         <input id="tpInput" type="text" autocomplete="off" placeholder="Nhập từ…" />
-        <button class="primary" id="tpCheck">Kiểm tra</button>
+        <div class="tp-hint hidden" id="tpHintText"></div>
+        <div class="tp-actions" id="tpActions">
+          <button class="ghost" id="tpHint">💡 Gợi ý</button>
+          <button class="primary" id="tpCheck">Kiểm tra</button>
+          <button class="secondary" id="tpSkip">😕 Chưa nhớ</button>
+        </div>
         <div class="tp-result hidden" id="tpResult"></div>
+        <button class="primary big hidden" id="tpContinue">Tiếp tục</button>
+      </div>
+
+      <!-- Tổng kết nhóm -->
+      <div id="groupSummary" class="stage hidden">
+        <h2 class="gs-title">🧩 Tổng kết nhóm từ</h2>
+        <p class="q-hint">Xem lại nghĩa và phát âm của nhóm từ vừa học:</p>
+        <div class="options" id="gsList"></div>
+        <button class="primary big" id="gsContinue">Tiếp tục</button>
       </div>
     </div>
 
@@ -138,6 +153,7 @@
         <div><span id="rTotal">0</span><small>Tổng</small></div>
         <div><span id="rAcc">0%</span><small>Chính xác</small></div>
       </div>
+      <p id="doneGroupNote" class="hint hidden"></p>
       <div id="doneStreak" class="streak hidden"></div>
       <button id="nextRound" class="primary big hidden">Vòng tiếp theo</button>
       <button id="again" class="secondary big">Ôn lại</button>
@@ -174,6 +190,7 @@
             <button data-v="flashcard" class="active">🎴 Flashcard</button>
             <button data-v="quiz">🧪 Trắc nghiệm</button>
             <button data-v="type">✍️ Gõ lại từ</button>
+            <button data-v="group">🧩 Học nhóm</button>
           </div>
         </div>
 

@@ -501,6 +501,11 @@ h1 {
   border: 2px solid var(--border); border-radius: var(--radius-sm); margin: 12px 0;
 }
 #tpInput:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 4px var(--primary-soft); }
+.tp-hint { font-size: 16px; font-weight: 700; letter-spacing: 3px; color: var(--purple); margin: -4px 0 12px; }
+.tp-actions { display: flex; gap: 10px; align-items: stretch; }
+.tp-actions .primary { flex: 2; margin: 0; }
+.tp-actions .ghost, .tp-actions .secondary { flex: 1; padding: 13px 12px; }
+.tp-actions button:disabled { opacity: 0.5; cursor: default; }
 .tp-result { margin-top: 18px; font-size: 16px; font-weight: 600; }
 .tp-result.ok { color: var(--success); }
 .tp-result.no { color: var(--danger); }
@@ -510,6 +515,23 @@ h1 {
 .stats div { text-align: center; }
 .stats span { display: block; font-size: 32px; font-weight: 800; color: var(--primary); }
 .stats small { font-size: 12px; color: var(--ink-faint); font-weight: 600; }
+
+/* Học nhóm */
+.phase-info { text-align: right; font-size: 11px; color: var(--ink-faint); margin: -14px 0 18px; font-weight: 600; }
+.gs-title { font-size: 20px; font-weight: 800; color: var(--ink); margin: 4px 0 2px; }
+.gs-item {
+  display: flex; align-items: center; gap: 12px; padding: 12px 16px;
+  border: 1.5px solid var(--border); border-radius: var(--radius-sm); text-align: left;
+}
+.gs-item.gs-ok { border-color: var(--success); background: var(--success-soft); }
+.gs-item.gs-fail { border-color: var(--danger); background: var(--danger-soft); }
+.gs-word { font-weight: 700; font-size: 15px; color: var(--ink); flex-shrink: 0; }
+.gs-meaning { flex: 1; font-size: 14px; color: var(--ink-soft); }
+.gs-speak { background: none; border: none; cursor: pointer; font-size: 16px; flex-shrink: 0; }
+.gs-mark { font-weight: 800; font-size: 16px; flex-shrink: 0; }
+.gs-item.gs-ok .gs-mark { color: var(--success); }
+.gs-item.gs-fail .gs-mark { color: var(--danger); }
+.gs-carry-label { font-size: 12px; font-weight: 700; color: var(--ink-faint); margin: 8px 0 -2px; text-align: left; }
 
 /* ---------- Xem từ đã học ---------- */
 .browse-head { display: flex; align-items: flex-start; gap: 16px; margin-bottom: 24px; }

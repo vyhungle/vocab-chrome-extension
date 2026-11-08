@@ -29,11 +29,22 @@ async function handlePronounce(word) {
   };
 }
 
+// timeout cho fetch: tránh treo cả phút khi API bên ngoài phản hồi chậm/nghẽn mạng
+async function fetchWithTimeout(url, ms = 4000) {
+  const ctrl = new AbortController();
+  const id = setTimeout(() => ctrl.abort(), ms);
+  try {
+    return await fetch(url, { signal: ctrl.signal });
+  } finally {
+    clearTimeout(id);
+  }
+}
+
 // ---- Dịch nghĩa (MyMemory, EN -> VI) ----
 async function translateWord(word) {
   const q = encodeURIComponent(word.trim());
   const url = `https://api.mymemory.translated.net/get?q=${q}&langpair=en|vi`;
-  const res = await fetch(url);
+  const res = await fetchWithTimeout(url);
   if (!res.ok) throw new Error("HTTP " + res.status);
   const json = await res.json();
 
@@ -60,7 +71,7 @@ async function lookupDictionary(word) {
   let audio = "";
   let audioScore = -1; // ưu tiên phát âm Anh-Mỹ (us) hơn các giọng khác (uk/au/in...)
   try {
-    const res = await fetch(url);
+    const res = await fetchWithTimeout(url);
     if (res.ok) {
       const json = await res.json();
       if (Array.isArray(json)) {
@@ -101,7 +112,7 @@ function accentScore(audioUrl) {
 async function lookupDatamuse(word) {
   const q = encodeURIComponent(word.trim().toLowerCase());
   const url = `https://api.datamuse.com/words?sp=${q}&md=rf&max=1`;
-  const res = await fetch(url);
+  const res = await fetchWithTimeout(url);
   if (!res.ok) return { ipa: "", level: "" };
   const json = await res.json();
   const tags = json?.[0]?.tags || [];

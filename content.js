@@ -251,7 +251,8 @@
       if (!name) return;
       try {
         chrome.storage.local.get({ decks: ["Mặc định"] }, (res) => {
-          const decks = res.decks;
+          const rawDecks = Array.isArray(res?.decks) && res.decks.length > 0 ? res.decks : ["Mặc định"];
+          const decks = Array.from(new Set(rawDecks));
           if (!decks.includes(name)) decks.push(name);
           chrome.storage.local.set({ decks, lastDeck: name }, () => {
             loadDecks(deckSel, name);
@@ -285,15 +286,28 @@
   }
 
   function loadDecks(selectEl, selectName) {
+    if (!selectEl) return;
     try {
-      chrome.storage.local.get({ decks: ["Mặc định"], lastDeck: "" }, (res) => {
-        const decks = res.decks.length ? res.decks : ["Mặc định"];
+      chrome.storage.local.get({ decks: ["Mặc định"], words: [], lastDeck: "" }, (res) => {
+        const rawDecks = Array.isArray(res?.decks) ? res.decks : ["Mặc định"];
+        const deckSet = new Set(rawDecks);
+        deckSet.add("Mặc định");
+
+        // Quét thêm tất cả bộ từ đang tồn tại trong danh sách từ vựng
+        const wordList = Array.isArray(res?.words) ? res.words.filter((w) => !w.deletedAt) : [];
+        wordList.forEach((w) => {
+          if (w.deck) deckSet.add(w.deck);
+        });
+
+        const decks = Array.from(deckSet);
+
         selectEl.innerHTML = decks
           .map((d) => `<option value="${escapeHtml(d)}">${escapeHtml(d)}</option>`)
           .join("");
-        // ưu tiên: bộ vừa được chỉ định > bộ dùng lần cuối > bộ cuối danh sách
-        let target = selectName || res.lastDeck || decks[decks.length - 1];
-        if (!decks.includes(target)) target = decks[decks.length - 1];
+
+        // ưu tiên: bộ vừa được chỉ định > bộ dùng lần cuối > bộ đầu tiên
+        let target = selectName || res.lastDeck || "Mặc định";
+        if (!decks.includes(target)) target = decks[0];
         selectEl.value = target;
       });
     } catch (e) {
@@ -361,8 +375,29 @@
   function playPronunciation(text, audioUrl) {
     if (audioUrl) {
       try {
+        let settled = false;
         const a = new Audio(audioUrl);
-        a.play().catch(() => speak(text)); // lỗi phát thì fallback
+        const fallback = () => {
+          if (settled) return;
+          settled = true;
+          a.pause();
+          speak(text);
+        };
+        // nếu audio tải quá chậm (mạng chậm/CDN nghẽn) thì chuyển sang giọng đọc máy ngay
+        // thay vì để người dùng chờ cả phút mới nghe được
+        const timer = setTimeout(fallback, 1500);
+        a.addEventListener("playing", () => {
+          settled = true;
+          clearTimeout(timer);
+        });
+        a.addEventListener("error", () => {
+          clearTimeout(timer);
+          fallback();
+        });
+        a.play().catch(() => {
+          clearTimeout(timer);
+          fallback();
+        });
         return;
       } catch (e) {}
     }
