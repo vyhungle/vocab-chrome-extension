@@ -6,6 +6,8 @@ const searchEl = document.getElementById("search");
 const sortEl = document.getElementById("sort");
 const deckPanel = document.getElementById("deckPanel");
 
+bindVerbFormToggle(listEl);
+
 const DAY = 24 * 60 * 60 * 1000;
 
 function loadDeckFilter() {
@@ -69,7 +71,7 @@ function render() {
       div.className = "item";
       div.innerHTML = `
         <div>
-          <div class="w">${esc(w.word)}${w.ipa ? ` <span class="ipa">${esc(w.ipa)}</span>` : ""}</div>
+          <div class="w">${esc(w.word)}${w.ipa ? ` <span class="ipa">${esc(w.ipa)}</span>` : ""}${verbFormSuffixHtml(w.word)}</div>
           <div class="m">${esc(w.meaning || "")}</div>
           <div class="tags">
             <span class="tag">${esc(w.deck || "Mặc định")}</span>
@@ -270,6 +272,7 @@ const awLookupBtn = document.getElementById("awLookupBtn");
 const awError = document.getElementById("awError");
 const awResult = document.getElementById("awResult");
 const awWordDisplay = document.getElementById("awWordDisplay");
+bindVerbFormToggle(awResult);
 const awIpaDisplay = document.getElementById("awIpaDisplay");
 const awSpeakBtn = document.getElementById("awSpeakBtn");
 const awMeaningEl = document.getElementById("awMeaning");
@@ -343,7 +346,7 @@ function doAwLookup() {
   awCurrentIpa = "";
   awCurrentAudio = "";
   awSelectedLevel = "";
-  awWordDisplay.textContent = word;
+  awWordDisplay.innerHTML = esc(word) + verbFormSuffixHtml(word);
   awIpaDisplay.textContent = "";
   awMeaningEl.textContent = "Đang tra…";
   awMeaningEl.contentEditable = "false";

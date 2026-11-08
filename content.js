@@ -113,9 +113,10 @@
 
     popupEl = document.createElement("div");
     popupEl.className = "vs-popup";
+    bindVerbFormToggle(popupEl);
     popupEl.innerHTML = `
       <div class="vs-header">
-        <span class="vs-word">${escapeHtml(word)}</span>
+        <span class="vs-word">${escapeHtml(word)}${verbFormSuffixHtml(word)}</span>
         <div class="vs-actions">
           <button class="vs-btn vs-speak" title="Phát âm">🔊</button>
           <button class="vs-btn vs-close" title="Đóng">✕</button>

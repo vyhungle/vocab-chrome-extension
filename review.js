@@ -1,3 +1,5 @@
+bindVerbFormToggle(document.body);
+
 // ---------- Tham số ----------
 const params = new URLSearchParams(location.search);
 const DAY = 24 * 60 * 60 * 1000;
@@ -585,7 +587,7 @@ function showGroupSummary() {
     const failed = group.groupWrong.includes(w.id);
     return `
       <div class="gs-item ${failed ? "gs-fail" : "gs-ok"}" data-id="${esc(w.id)}">
-        <div class="gs-word">${esc(w.word)}${w.ipa ? ` <span class="ipa">${esc(w.ipa)}</span>` : ""}</div>
+        <div class="gs-word">${esc(w.word)}${w.ipa ? ` <span class="ipa">${esc(w.ipa)}</span>` : ""}${verbFormSuffixHtml(w.word)}</div>
         <div class="gs-meaning">${esc(w.meaning || "(chưa có nghĩa)")}</div>
         <button class="gs-speak" title="Phát âm">🔊</button>
         <span class="gs-mark">${failed ? "✗" : "✓"}</span>
@@ -764,7 +766,7 @@ function renderBrowseList() {
       return `
         <div class="browse-item" data-id="${esc(w.id)}">
           <div>
-            <div class="bw">${esc(w.word)}${w.ipa ? `<span class="ipa">${esc(w.ipa)}</span>` : ""}</div>
+            <div class="bw">${esc(w.word)}${w.ipa ? `<span class="ipa">${esc(w.ipa)}</span>` : ""}${verbFormSuffixHtml(w.word)}</div>
             <div class="bm">${esc(w.meaning || "(chưa có nghĩa)")}</div>
             <div class="btags">
               <span class="btag">${esc(w.deck || "Mặc định")}</span>
@@ -869,7 +871,7 @@ function showCard() {
 function showFlashcard(w) {
   const stage = $("flashcard");
   stage.classList.remove("hidden");
-  $("fcWord").innerHTML = esc(w.word) + (w.ipa ? ` <span class="ipa">${esc(w.ipa)}</span>` : "");
+  $("fcWord").innerHTML = esc(w.word) + (w.ipa ? ` <span class="ipa">${esc(w.ipa)}</span>` : "") + verbFormSuffixHtml(w.word);
   $("fcMeaning").textContent = w.meaning || "(chưa có nghĩa)";
   const flip = $("flip");
   flip.classList.remove("flipped");
@@ -898,7 +900,7 @@ function showFlashcard(w) {
 function showQuiz(w) {
   const stage = $("quiz");
   stage.classList.remove("hidden");
-  $("qzWord").innerHTML = esc(w.word) + (w.ipa ? ` <span class="ipa">${esc(w.ipa)}</span>` : "");
+  $("qzWord").innerHTML = esc(w.word) + (w.ipa ? ` <span class="ipa">${esc(w.ipa)}</span>` : "") + verbFormSuffixHtml(w.word);
   $("qzSpeak").onclick = () => playPron(w.word, w.audio);
 
   // tạo 3 đáp án nhiễu từ các từ khác
